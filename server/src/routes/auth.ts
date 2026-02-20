@@ -206,14 +206,14 @@ export async function authRoutes(app: FastifyInstance) {
     if (!ok) {
       const fails = (user.failed_attempts || 0) + 1
       const locked_until = fails >= 5 ? new Date(Date.now() + 30 * 60 * 1000).toISOString() : null
-      await supabase.from('users').update({ failed_attempts: fails, locked_until }).eq('id', user.id)
+      await supabase!.from('users').update({ failed_attempts: fails, locked_until }).eq('id', user.id)
       await logAudit('login_failed', { user_id: user.id, email, ip, ua: req.headers['user-agent'] as string, detail: { reason: 'wrong_password', fails } })
       return reply.send({ code: 10010, msg: '邮箱或密码错误' })
     }
-    await supabase.from('users').update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq('id', user.id)
+    await supabase!.from('users').update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq('id', user.id)
     const accessToken = jwt.sign({ sub: user.id }, secrets.access, { expiresIn: ACCESS_TTL })
     const refreshToken = jwt.sign({ sub: user.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
-    await supabase.from('sessions').insert({
+    await supabase!.from('sessions').insert({
       user_id: user.id,
       refresh_token: refreshToken,
       expires_at: new Date(Date.now() + REFRESH_TTL * 1000).toISOString(),
