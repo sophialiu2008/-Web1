@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { supabase } from '../supabase'
+import { supabase } from '../supabase.js'
 
 export async function blogsRoutes(app: FastifyInstance) {
   app.get('/api/blog', async (req, reply) => {

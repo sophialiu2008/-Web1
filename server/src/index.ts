@@ -3,12 +3,12 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import formbody from '@fastify/formbody'
 import cookie from '@fastify/cookie'
-import { petsRoutes } from './routes/pets'
-import { blogsRoutes } from './routes/blogs'
-import { applicationsRoutes } from './routes/applications'
-import { bookingsRoutes } from './routes/bookings'
-import { analyticsRoutes } from './routes/analytics'
-import { authRoutes } from './routes/auth'
+import { petsRoutes } from './routes/pets.js'
+import { blogsRoutes } from './routes/blogs.js'
+import { applicationsRoutes } from './routes/applications.js'
+import { bookingsRoutes } from './routes/bookings.js'
+import { analyticsRoutes } from './routes/analytics.js'
+import { authRoutes } from './routes/auth.js'
 
 const app = Fastify({ logger: true })
 

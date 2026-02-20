@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { supabase } from '../supabase'
+import { supabase } from '../supabase.js'
 
 export async function analyticsRoutes(app: FastifyInstance) {
   app.post('/api/analytics/pet-view', async (req, reply) => {

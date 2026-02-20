@@ -1,10 +1,10 @@
 import { FastifyInstance } from 'fastify'
-import { supabase } from '../supabase'
+import { supabase } from '../supabase.js'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import svgCaptcha from 'svg-captcha'
-import { getMailer } from '../services/mailer'
-import { getClientIp, rateLimit } from '../utils/rateLimit'
+import { getMailer } from '../services/mailer.js'
+import { getClientIp, rateLimit } from '../utils/rateLimit.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 
 const ACCESS_TTL = 60 * 15
