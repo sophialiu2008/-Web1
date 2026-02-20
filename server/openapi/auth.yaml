@@ -1,0 +1,124 @@
+openapi: 3.0.3
+info:
+  title: Pet Adoption Auth API
+  version: 1.0.0
+  description: 用户认证与授权接口
+servers:
+  - url: http://localhost:8787
+paths:
+  /v1/auth/captcha:
+    get:
+      summary: 获取图形验证码
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: integer, example: 0 }
+                  msg: { type: string, example: success }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      svg: { type: string }
+  /v1/auth/verify-code:
+    post:
+      summary: 发送邮箱/短信6位验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel: { type: string, enum: [email, phone] }
+                dest: { type: string }
+      responses:
+        '200':
+          description: OK
+  /v1/auth/register:
+    post:
+      summary: 注册并自动登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+                email: { type: string, nullable: true }
+                phone: { type: string, nullable: true }
+                code: { type: string }
+                captcha_id: { type: string }
+                captcha_answer: { type: string }
+                remember: { type: boolean }
+      responses:
+        '200':
+          description: OK
+  /v1/auth/login:
+    post:
+      summary: 用户名/邮箱/手机号+密码登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier: { type: string }
+                password: { type: string }
+                captcha_id: { type: string }
+                captcha_answer: { type: string }
+                remember: { type: boolean }
+      responses:
+        '200':
+          description: OK
+  /v1/auth/refresh:
+    post:
+      summary: 使用refresh_token换新access_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: OK
+  /v1/auth/logout:
+    post:
+      summary: 退出并注销refresh_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        '200':
+          description: OK
+  /v1/auth/reset-password:
+    post:
+      summary: 通过邮箱/手机验证码重置密码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier: { type: string }
+                code: { type: string }
+                new_password: { type: string }
+      responses:
+        '200':
+          description: OK
