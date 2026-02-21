@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { User, Lock, Mail, RefreshCcw, Phone, MessageSquare, ChevronDown } from 'lucide-react';
+import { User, Lock, Mail, RefreshCcw, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   getCaptcha,
