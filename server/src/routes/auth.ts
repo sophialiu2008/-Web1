@@ -6,6 +6,7 @@ import svgCaptcha from 'svg-captcha'
 import { getMailer } from '../services/mailer.js'
 import { getClientIp, rateLimit } from '../utils/rateLimit.js'
 import { randomBytes, randomUUID } from 'node:crypto'
+import { sendSmsOtp as smsServiceSend, verifySmsOtp as smsServiceVerify, normalizePhone } from '../services/sms.js'
 
 const ACCESS_TTL = 60 * 15
 const REFRESH_TTL = 60 * 60 * 24 * 7
@@ -303,5 +304,123 @@ export async function authRoutes(app: FastifyInstance) {
     await supabase.from('password_reset_tokens').update({ used: true }).eq('id', rec.id)
     await logAudit('password_reset', { user_id: rec.user_id })
     return reply.send({ code: 0, msg: 'success' })
+  })
+
+  // ─── SMS OTP Routes ──────────────────────────────────────────
+
+  app.post('/v1/auth/sms/send-otp', async (req, reply) => {
+    const ip = getClientIp(req)
+    if (!rateLimit(`sms:${ip}`, 1, 60 * 1000)) {
+      return reply.status(429).send({ code: 10429, msg: '请求过于频繁，请60秒后重试' })
+    }
+    const b = req.body as any
+    const rawPhone = String(b?.phone || '').trim()
+    if (!rawPhone || !/^1[3-9]\d{9}$/.test(rawPhone.replace(/^\+?86/, ''))) {
+      return reply.send({ code: 10003, msg: '请输入正确的手机号' })
+    }
+    const phone = normalizePhone(rawPhone)
+    try {
+      await smsServiceSend(phone)
+      await logAudit('sms_otp_sent', { email: null, ip, ua: req.headers['user-agent'] as string, detail: { phone } })
+      return reply.send({ code: 0, msg: 'success' })
+    } catch (e: any) {
+      console.error('[SMS] Error:', e)
+      return reply.status(500).send({ code: 10002, msg: e?.message || '短信发送失败' })
+    }
+  })
+
+  app.post('/v1/auth/sms/verify-otp', async (req, reply) => {
+    const ip = getClientIp(req)
+    if (!rateLimit(`smsv:${ip}`, 10, 60 * 1000)) {
+      return reply.status(429).send({ code: 10429, msg: '请求过于频繁' })
+    }
+    const b = req.body as any
+    const rawPhone = String(b?.phone || '').trim()
+    const token = String(b?.token || '').trim()
+    if (!rawPhone || !token) return reply.send({ code: 10003, msg: '参数不合法' })
+    const phone = normalizePhone(rawPhone)
+
+    const ok = smsServiceVerify(phone, token)
+    if (!ok) {
+      await logAudit('sms_otp_failed', { ip, ua: req.headers['user-agent'] as string, detail: { phone } })
+      return reply.send({ code: 10007, msg: '验证码错误或已过期' })
+    }
+
+    // 查找或创建用户
+    let userId: string | null = null
+    let userEmail: string | null = null
+
+    if (supabase) {
+      // 先查已有用户
+      const { data: existing } = await supabase.from('users').select('id,email').eq('phone', phone).maybeSingle()
+      if (existing) {
+        userId = existing.id
+        userEmail = existing.email
+      } else {
+        // 新用户 — 自动注册
+        const { data: newUser, error } = await supabase.from('users').insert({
+          phone,
+          email_verified_at: new Date().toISOString()
+        }).select('id,email').single()
+        if (error) {
+          console.error('[SMS-AUTH] create user error:', error)
+          return reply.status(500).send({ code: 10002, msg: '用户创建失败' })
+        }
+        userId = newUser.id
+        userEmail = newUser.email
+
+        // 尝试同步 profiles 表
+        try {
+          await supabase.from('profiles').upsert({
+            id: newUser.id,
+            phone,
+            display_name: '手机用户' + rawPhone.slice(-4)
+          })
+        } catch { /* profiles 表可能不存在，忽略 */ }
+      }
+    } else {
+      // 内存模式 fallback
+      const memKey = `phone:${phone}`
+      const existing = memUsers.get(memKey)
+      if (existing) {
+        userId = existing.id
+      } else {
+        userId = randomUUID()
+        memUsers.set(memKey, {
+          id: userId,
+          email: '',
+          password_hash: '',
+          email_verified_at: new Date().toISOString()
+        })
+      }
+    }
+
+    // 签发 JWT
+    const accessToken = jwt.sign({ sub: userId }, secrets.access, { expiresIn: ACCESS_TTL })
+    const refreshToken = jwt.sign({ sub: userId }, secrets.refresh, { expiresIn: REFRESH_TTL })
+
+    if (supabase) {
+      try {
+        await supabase.from('sessions').insert({
+          user_id: userId,
+          refresh_token: refreshToken,
+          expires_at: new Date(Date.now() + REFRESH_TTL * 1000).toISOString()
+        })
+      } catch { }
+    }
+
+    setAuthCookies(reply, accessToken, refreshToken)
+    await logAudit('sms_login_success', { user_id: userId, ip, ua: req.headers['user-agent'] as string, detail: { phone } })
+
+    return reply.send({
+      code: 0,
+      msg: 'success',
+      data: {
+        user: { id: userId, email: userEmail, phone },
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: ACCESS_TTL
+      }
+    })
   })
 }

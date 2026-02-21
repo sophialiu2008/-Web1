@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect, Suspense, lazy } from 'react';
 import { useAnalyticsStore } from '@/store/analyticsStore';
+import { Toaster } from 'sonner';
 import Navbar from './sections/Navbar';
 import Hero from './sections/Hero';
 import PetGallery from './sections/PetGallery';
@@ -89,6 +90,7 @@ function MainLayout({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Router>
+      <Toaster richColors position="top-center" />
       <AnalyticsTracker />
       <Suspense fallback={<PageLoader />}>
         <Routes>
@@ -101,7 +103,7 @@ function App() {
               </MainLayout>
             }
           />
-          
+
           {/* Pet Pages */}
           <Route
             path="/pets"
@@ -119,7 +121,7 @@ function App() {
               </MainLayout>
             }
           />
-          
+
           {/* Blog Pages */}
           <Route
             path="/blog"
@@ -137,7 +139,7 @@ function App() {
               </MainLayout>
             }
           />
-          
+
           {/* User Pages */}
           <Route
             path="/profile"
@@ -159,7 +161,7 @@ function App() {
             path="/reset-password"
             element={<ResetPassword />}
           />
-          
+
           {/* Legal Pages */}
           <Route
             path="/privacy"
@@ -169,13 +171,13 @@ function App() {
               </MainLayout>
             }
           />
-          
+
           {/* Admin Pages */}
           <Route
             path="/admin"
             element={<Admin />}
           />
-          
+
           {/* 404 Page */}
           <Route
             path="*"

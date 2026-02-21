@@ -154,3 +154,23 @@ export async function fetchBookings(userId: string) {
   if (!r.ok) return []
   return r.json()
 }
+
+export async function sendSmsOtp(phone: string) {
+  const r = await fetch(`${API_BASE}/v1/auth/sms/send-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+    credentials: 'include'
+  })
+  return r.json()
+}
+
+export async function verifySmsOtp(phone: string, token: string) {
+  const r = await fetch(`${API_BASE}/v1/auth/sms/verify-otp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, token }),
+    credentials: 'include'
+  })
+  return r.json()
+}
