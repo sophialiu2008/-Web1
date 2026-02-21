@@ -1,0 +1,11 @@
+{
+    "name": "pet-adoption-monorepo",
+    "private": true,
+    "scripts": {
+        "build": "cd app && npm install && npm run build",
+        "install": "cd app && npm install"
+    },
+    "engines": {
+        "node": "20.x"
+    }
+}
