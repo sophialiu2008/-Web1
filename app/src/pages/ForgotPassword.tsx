@@ -46,9 +46,9 @@ export default function ForgotPassword() {
         console.error('API 返回错误:', msg)
         setError(msg)
       }
-    } catch (err: any) {
-      const msg = err?.message || String(err)
-      console.error('请求异常:', msg, err)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('请求异常:', msg)
       setError(`请求失败: ${msg}`)
     } finally {
       setLoading(false)

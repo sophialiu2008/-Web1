@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPetById, getRelatedPets, type Pet } from '@/data/pets';
+import { getPetById, getRelatedPets } from '@/data/pets';
 import { useUserStore } from '@/store/userStore';
 import { useAnalyticsStore } from '@/store/analyticsStore';
 import { Button } from '@/components/ui/button';
@@ -21,28 +21,22 @@ export default function PetDetail() {
   const navigate = useNavigate();
   const { favorites, toggleFavorite, addToCompare, compareList } = useUserStore();
   const { trackPetView } = useAnalyticsStore();
-  const [pet, setPet] = useState<Pet | null>(null);
-  const [relatedPets, setRelatedPets] = useState<Pet[]>([]);
+  const petId = useMemo(() => (id ? parseInt(id) : null), [id]);
+  const pet = useMemo(() => (petId ? getPetById(petId) : null), [petId]);
+  const relatedPets = useMemo(() => (pet ? getRelatedPets(pet) : []), [pet]);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      const petId = parseInt(id);
-      const foundPet = getPetById(petId);
-      if (foundPet) {
-        setPet(foundPet);
-        setRelatedPets(getRelatedPets(foundPet));
-        trackPetView(petId);
-      }
+    if (petId) {
+      trackPetView(petId);
     }
-  }, [id, trackPetView]);
+  }, [petId, trackPetView]);
 
   useEffect(() => {
-    if (id) {
-      const petId = parseInt(id);
+    if (petId) {
       postPetView(petId);
     }
-  }, [id]);
+  }, [petId]);
 
   if (!pet) {
     return (
@@ -68,7 +62,7 @@ export default function PetDetail() {
           text: `${pet.name}是一只${pet.age}的${pet.breed}，${pet.description}`,
           url: window.location.href,
         });
-      } catch (err) {
+      } catch {
         console.log('分享取消');
       }
     } else {

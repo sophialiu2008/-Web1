@@ -52,7 +52,9 @@ export default function BookingModal({ isOpen, onClose, petId, petName }: Bookin
         date: booking.date,
         time: booking.time
       });
-    } catch {}
+    } catch (err) {
+      console.error(err);
+    }
     setStep(3);
   };
 

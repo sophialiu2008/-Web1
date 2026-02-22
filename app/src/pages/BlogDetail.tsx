@@ -40,7 +40,7 @@ export default function BlogDetail() {
           text: post.excerpt,
           url: window.location.href,
         });
-      } catch (err) {
+      } catch {
         console.log('分享取消');
       }
     } else {

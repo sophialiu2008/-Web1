@@ -64,7 +64,7 @@ export default function PetQuiz({ isOpen, onClose }: PetQuizProps) {
           text: `我测试了适合养什么宠物，快来看看你的结果吧！`,
           url: window.location.href,
         });
-      } catch (err) {
+      } catch {
         console.log('分享取消');
       }
     } else {

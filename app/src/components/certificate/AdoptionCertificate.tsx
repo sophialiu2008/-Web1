@@ -36,7 +36,7 @@ export default function AdoptionCertificate({
           text: `我领养了${petName}，这是我人生中最美好的决定之一！`,
           url: window.location.href,
         });
-      } catch (err) {
+      } catch {
         console.log('分享取消');
       }
     } else {

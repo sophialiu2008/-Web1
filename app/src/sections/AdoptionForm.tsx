@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
 import { pets } from '@/data/pets';
@@ -72,48 +72,48 @@ export default function AdoptionForm() {
   const location = useLocation();
   const { user, isLoggedIn, addApplication } = useUserStore();
   
+  const params = new URLSearchParams(location.search);
+  const petIdFromQuery = params.get('pet');
+  const getSavedFormData = (): Partial<FormData> | null => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    const saved = localStorage.getItem('adoptionFormData');
+    if (!saved) {
+      return null;
+    }
+    try {
+      return JSON.parse(saved) as Partial<FormData>;
+    } catch {
+      console.error('Failed to parse saved form data');
+      return null;
+    }
+  };
+
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formData, setFormData] = useState<FormData>(() => {
+    const baseData = petIdFromQuery ? { ...initialFormData, selectedPetId: petIdFromQuery } : initialFormData;
+    const saved = getSavedFormData();
+    return saved ? { ...baseData, ...saved } : baseData;
+  });
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof FormData, boolean>>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(() => {
+    const saved = getSavedFormData();
+    return saved ? new Date() : null;
+  });
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
 
-  // 从URL参数获取宠物ID
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const petId = params.get('pet');
-    if (petId) {
-      setFormData(prev => ({ ...prev, selectedPetId: petId }));
-    }
-  }, [location.search]);
-
-  // 从本地存储加载表单数据
-  useEffect(() => {
-    const saved = localStorage.getItem('adoptionFormData');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setFormData(prev => ({ ...prev, ...parsed }));
-        setLastSaved(new Date());
-      } catch {
-        console.error('Failed to parse saved form data');
-      }
-    }
-  }, []);
-
-  // 如果用户已登录，填充用户信息
-  useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        name: prev.name || user.name || '',
-        phone: prev.phone || user.phone || '',
-      }));
-    }
-  }, [user]);
+  const effectiveFormData = useMemo(() => {
+    return {
+      ...formData,
+      selectedPetId: formData.selectedPetId || petIdFromQuery || '',
+      name: formData.name || user?.name || '',
+      phone: formData.phone || user?.phone || '',
+    };
+  }, [formData, petIdFromQuery, user?.name, user?.phone]);
 
   // 自动保存到本地存储
   const saveToLocalStorage = useCallback(() => {
@@ -131,10 +131,10 @@ export default function AdoptionForm() {
   }, [formData, saveToLocalStorage]);
 
   // 计算表单完成度
-  const calculateProgress = () => {
+  const calculateProgress = (data: FormData) => {
     const requiredFields: (keyof FormData)[] = ['name', 'phone', 'age', 'occupation', 'housingType', 'familyMembers', 'petType', 'experience', 'reason'];
     const filledFields = requiredFields.filter(field => {
-      const value = formData[field];
+      const value = data[field];
       return value && String(value).trim() !== '';
     }).length;
     return Math.round((filledFields / requiredFields.length) * 100);
@@ -196,7 +196,7 @@ export default function AdoptionForm() {
 
   const handleBlur = (field: keyof FormData) => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    const error = validateField(field, formData[field]);
+    const error = validateField(field, effectiveFormData[field]);
     setErrors(prev => ({ ...prev, [field]: error }));
   };
 
@@ -211,7 +211,7 @@ export default function AdoptionForm() {
     // 验证所有字段
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     (Object.keys(formData) as (keyof FormData)[]).forEach(field => {
-      const error = validateField(field, formData[field]);
+      const error = validateField(field, effectiveFormData[field]);
       if (error) newErrors[field] = error;
     });
     
@@ -220,12 +220,13 @@ export default function AdoptionForm() {
     
     if (Object.keys(newErrors).length === 0) {
       try {
-        const selectedId = formData.selectedPetId ? parseInt(formData.selectedPetId) : 0;
+        const selectedId = effectiveFormData.selectedPetId ? parseInt(effectiveFormData.selectedPetId) : 0;
         const petName = selectedId ? pets.find(p => p.id === selectedId)?.name || '未知宠物' : '未指定';
         const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         const makeUuid = () => {
-          if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
-            return (crypto as any).randomUUID();
+          const cryptoObj = globalThis.crypto;
+          if (cryptoObj && 'randomUUID' in cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+            return cryptoObj.randomUUID();
           }
           const hex = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
           return hex.replace(/[xy]/g, c => {
@@ -239,18 +240,18 @@ export default function AdoptionForm() {
           user_id: uid,
           pet_id: selectedId || null,
           pet_name: petName,
-          name: formData.name,
-          phone: formData.phone,
-          email: formData.email || null,
-          age: Number(formData.age),
-          occupation: formData.occupation,
-          housing_type: formData.housingType,
-          has_yard: formData.hasYard,
-          pet_type: formData.petType,
-          experience: formData.experience,
-          current_pets: formData.currentPets,
-          family_members: formData.familyMembers,
-          reason: formData.reason
+          name: effectiveFormData.name,
+          phone: effectiveFormData.phone,
+          email: effectiveFormData.email || null,
+          age: Number(effectiveFormData.age),
+          occupation: effectiveFormData.occupation,
+          housing_type: effectiveFormData.housingType,
+          has_yard: effectiveFormData.hasYard,
+          pet_type: effectiveFormData.petType,
+          experience: effectiveFormData.experience,
+          current_pets: effectiveFormData.currentPets,
+          family_members: effectiveFormData.familyMembers,
+          reason: effectiveFormData.reason
         };
         const created = await submitApplication(payload);
         const application = {
@@ -265,14 +266,15 @@ export default function AdoptionForm() {
         setSuccessId(application.id);
         localStorage.removeItem('adoptionFormData');
         setIsSubmitted(true);
-      } catch (e: any) {
-        alert(`提交失败：${e?.message || ''}`);
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : '';
+        alert(`提交失败：${message}`);
       }
     }
   };
 
-  const progress = calculateProgress();
-  const selectedPet = formData.selectedPetId ? pets.find(p => p.id === parseInt(formData.selectedPetId)) : null;
+  const progress = calculateProgress(effectiveFormData);
+  const selectedPet = effectiveFormData.selectedPetId ? pets.find(p => p.id === parseInt(effectiveFormData.selectedPetId)) : null;
 
   return (
     <section id="contact" className="py-20 bg-white">
@@ -357,7 +359,7 @@ export default function AdoptionForm() {
                         <Input
                           id="name"
                           placeholder="请输入您的姓名"
-                          value={formData.name}
+                          value={effectiveFormData.name}
                           onChange={(e) => handleInputChange('name', e.target.value)}
                           onBlur={() => handleBlur('name')}
                           className={touched.name && errors.name ? 'border-red-500' : ''}
@@ -375,7 +377,7 @@ export default function AdoptionForm() {
                           id="age"
                           type="number"
                           placeholder="请输入您的年龄"
-                          value={formData.age}
+                          value={effectiveFormData.age}
                           onChange={(e) => handleInputChange('age', e.target.value)}
                           onBlur={() => handleBlur('age')}
                           className={touched.age && errors.age ? 'border-red-500' : ''}
@@ -396,7 +398,7 @@ export default function AdoptionForm() {
                             type="tel"
                             placeholder="请输入联系电话"
                             className={`pl-10 ${touched.phone && errors.phone ? 'border-red-500' : ''}`}
-                            value={formData.phone}
+                            value={effectiveFormData.phone}
                             onChange={(e) => handleInputChange('phone', e.target.value)}
                             onBlur={() => handleBlur('phone')}
                           />
@@ -417,7 +419,7 @@ export default function AdoptionForm() {
                             type="email"
                             placeholder="请输入电子邮箱"
                             className={`pl-10 ${touched.email && errors.email ? 'border-red-500' : ''}`}
-                            value={formData.email}
+                            value={effectiveFormData.email}
                             onChange={(e) => handleInputChange('email', e.target.value)}
                             onBlur={() => handleBlur('email')}
                           />
@@ -434,7 +436,7 @@ export default function AdoptionForm() {
                         <Input
                           id="occupation"
                           placeholder="请输入您的职业"
-                          value={formData.occupation}
+                          value={effectiveFormData.occupation}
                           onChange={(e) => handleInputChange('occupation', e.target.value)}
                           onBlur={() => handleBlur('occupation')}
                           className={touched.occupation && errors.occupation ? 'border-red-500' : ''}
@@ -461,7 +463,7 @@ export default function AdoptionForm() {
                       <div className="space-y-2">
                         <Label>住房类型 *</Label>
                         <Select
-                          value={formData.housingType}
+                          value={effectiveFormData.housingType}
                           onValueChange={(value) => handleInputChange('housingType', value)}
                         >
                           <SelectTrigger className={touched.housingType && errors.housingType ? 'border-red-500' : ''}>
@@ -486,7 +488,7 @@ export default function AdoptionForm() {
                         <Label>家庭成员 *</Label>
                         <Input
                           placeholder="如：夫妻+1个孩子"
-                          value={formData.familyMembers}
+                          value={effectiveFormData.familyMembers}
                           onChange={(e) => handleInputChange('familyMembers', e.target.value)}
                           onBlur={() => handleBlur('familyMembers')}
                           className={touched.familyMembers && errors.familyMembers ? 'border-red-500' : ''}
@@ -502,8 +504,8 @@ export default function AdoptionForm() {
                     <div className="mt-4 flex items-center space-x-2">
                       <Checkbox
                         id="hasYard"
-                        checked={formData.hasYard}
-                        onCheckedChange={(checked) => handleInputChange('hasYard', checked as boolean)}
+                        checked={effectiveFormData.hasYard}
+                        onCheckedChange={(checked) => handleInputChange('hasYard', checked === true)}
                       />
                       <Label htmlFor="hasYard" className="font-normal cursor-pointer">
                         有独立院子或阳台
@@ -523,7 +525,7 @@ export default function AdoptionForm() {
                       <div className="space-y-2">
                         <Label>想领养的宠物类型 *</Label>
                         <Select
-                          value={formData.petType}
+                          value={effectiveFormData.petType}
                           onValueChange={(value) => handleInputChange('petType', value)}
                         >
                           <SelectTrigger className={touched.petType && errors.petType ? 'border-red-500' : ''}>
@@ -547,7 +549,7 @@ export default function AdoptionForm() {
                       <div className="space-y-2">
                         <Label>养宠经验 *</Label>
                         <Select
-                          value={formData.experience}
+                          value={effectiveFormData.experience}
                           onValueChange={(value) => handleInputChange('experience', value)}
                         >
                           <SelectTrigger className={touched.experience && errors.experience ? 'border-red-500' : ''}>
@@ -574,7 +576,7 @@ export default function AdoptionForm() {
                       <Textarea
                         id="currentPets"
                         placeholder="如有，请说明宠物种类、年龄、性格等"
-                        value={formData.currentPets}
+                        value={effectiveFormData.currentPets}
                         onChange={(e) => handleInputChange('currentPets', e.target.value)}
                       />
                     </div>
@@ -594,7 +596,7 @@ export default function AdoptionForm() {
                         id="reason"
                         placeholder="请说明您想领养宠物的原因，以及您将如何照顾它..."
                         rows={4}
-                        value={formData.reason}
+                        value={effectiveFormData.reason}
                         onChange={(e) => handleInputChange('reason', e.target.value)}
                         onBlur={() => handleBlur('reason')}
                         className={touched.reason && errors.reason ? 'border-red-500' : ''}
@@ -609,7 +611,7 @@ export default function AdoptionForm() {
                           <span />
                         )}
                         <span className="text-xs text-gray-400">
-                          {formData.reason.length} 字符
+                          {effectiveFormData.reason.length} 字符
                         </span>
                       </div>
                     </div>
@@ -619,8 +621,8 @@ export default function AdoptionForm() {
                   <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-xl">
                     <Checkbox
                       id="agreement"
-                      checked={formData.agreement}
-                      onCheckedChange={(checked) => handleInputChange('agreement', checked as boolean)}
+                      checked={effectiveFormData.agreement}
+                      onCheckedChange={(checked) => handleInputChange('agreement', checked === true)}
                       className="mt-1"
                     />
                     <div>
@@ -638,7 +640,7 @@ export default function AdoptionForm() {
                     type="submit"
                     size="lg"
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full transition-all hover:scale-[1.02]"
-                    disabled={!formData.agreement || progress < 100}
+                    disabled={!effectiveFormData.agreement || progress < 100}
                   >
                     <Send className="w-4 h-4 mr-2" />
                     {progress < 100 ? `请完善信息 (${progress}%)` : '提交申请'}

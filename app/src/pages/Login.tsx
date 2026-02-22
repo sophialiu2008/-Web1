@@ -50,6 +50,9 @@ export default function Login() {
   const [emailError, setEmailError] = useState('');
   const [emailChecking, setEmailChecking] = useState(false);
   const emailDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const getErrorMessage = (error: unknown) => {
+    return error instanceof Error ? error.message : '';
+  };
 
   const triggerEmailCheck = useCallback((email: string) => {
     if (emailDebounceRef.current) clearTimeout(emailDebounceRef.current);
@@ -96,25 +99,37 @@ export default function Login() {
         fetchBookings(userId)
       ]);
       if (Array.isArray(apps)) {
-        setApplications(apps.map((a: any) => ({
-          id: String(a.id),
-          petId: a.pet_id || 0,
-          petName: a.pet_name || '未指定',
-          status: a.status,
-          submitDate: a.submit_date,
-          updateDate: a.update_date,
-          notes: a.notes
-        } as AdoptionApplication)));
+        const mapped = apps
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => {
+            const statusValue = typeof item.status === 'string' ? item.status : 'pending';
+            return {
+              id: String(item.id ?? ''),
+              petId: typeof item.pet_id === 'number' ? item.pet_id : 0,
+              petName: typeof item.pet_name === 'string' ? item.pet_name : '未指定',
+              status: statusValue as AdoptionApplication['status'],
+              submitDate: typeof item.submit_date === 'string' ? item.submit_date : '',
+              updateDate: typeof item.update_date === 'string' ? item.update_date : '',
+              notes: typeof item.notes === 'string' ? item.notes : undefined
+            } satisfies AdoptionApplication;
+          });
+        setApplications(mapped);
       }
       if (Array.isArray(bks)) {
-        setBookings(bks.map((b: any) => ({
-          id: String(b.id),
-          petId: b.pet_id || 0,
-          petName: b.pet_name || '未指定',
-          date: b.date,
-          time: b.time,
-          status: b.status
-        } as Booking)));
+        const mapped = bks
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => {
+            const statusValue = typeof item.status === 'string' ? item.status : 'pending';
+            return {
+              id: String(item.id ?? ''),
+              petId: typeof item.pet_id === 'number' ? item.pet_id : 0,
+              petName: typeof item.pet_name === 'string' ? item.pet_name : '未指定',
+              date: typeof item.date === 'string' ? item.date : '',
+              time: typeof item.time === 'string' ? item.time : '',
+              status: statusValue as Booking['status']
+            } satisfies Booking;
+          });
+        setBookings(mapped);
       }
     } catch {
       // silently ignore
@@ -134,8 +149,8 @@ export default function Login() {
       await loadUserData(userId);
       toast.success('登录成功');
       navigate('/profile');
-    } catch (e: any) {
-      toast.error(e?.message || '登录失败');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || '登录失败');
     } finally {
       setIsLoading(false);
     }
@@ -170,8 +185,8 @@ export default function Login() {
       }
       toast.success('注册成功，请登录');
       setShowEmailRegister(false);
-    } catch (e: any) {
-      toast.error(e?.message || '注册失败');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || '注册失败');
     } finally {
       setIsLoading(false);
     }
@@ -200,8 +215,8 @@ export default function Login() {
           return prev - 1;
         });
       }, 1000);
-    } catch (e: any) {
-      toast.error(e?.message || '短信发送失败');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || '短信发送失败');
     } finally {
       setSmsSending(false);
     }
@@ -231,8 +246,8 @@ export default function Login() {
       await loadUserData(userId);
       toast.success('登录成功');
       navigate('/profile');
-    } catch (e: any) {
-      toast.error(e?.message || '验证失败');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e) || '验证失败');
     } finally {
       setIsLoading(false);
     }
