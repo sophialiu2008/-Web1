@@ -1,24 +1,35 @@
-import nodemailer from 'nodemailer'
-
 export interface Mailer {
   send(to: string, subject: string, html: string): Promise<void>
 }
 
-class SmtpMailer implements Mailer {
-  private transporter
+class ResendMailer implements Mailer {
+  private apiKey: string
   private from: string
   constructor() {
-    const host = process.env.SMTP_HOST
-    const port = Number(process.env.SMTP_PORT || 587)
-    const user = process.env.SMTP_USER
-    const pass = process.env.SMTP_PASS
-    const secure = process.env.SMTP_SECURE === 'true'
-    this.from = process.env.MAIL_FROM || user || 'no-reply@example.com'
-    if (!host || !user || !pass) throw new Error('SMTP not configured')
-    this.transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } })
+    const apiKey = process.env.RESEND_API_KEY
+    const defaultDomain = process.env.MAIL_DOMAIN || 'petsoul.space'
+    this.from = process.env.MAIL_FROM || `no-reply@${defaultDomain}`
+    if (!apiKey) throw new Error('RESEND_API_KEY not configured')
+    this.apiKey = apiKey
   }
   async send(to: string, subject: string, html: string) {
-    await this.transporter.sendMail({ from: this.from, to, subject, html })
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: this.from,
+        to,
+        subject,
+        html
+      })
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`Resend API error: ${res.status} ${text}`)
+    }
   }
 }
 
@@ -29,8 +40,7 @@ class LogMailer implements Mailer {
 }
 
 export function getMailer(): Mailer {
-  const driver = process.env.MAIL_DRIVER || 'smtp'
+  const driver = process.env.MAIL_DRIVER || 'resend'
   if (driver === 'log') return new LogMailer()
-  return new SmtpMailer()
+  return new ResendMailer()
 }
-
