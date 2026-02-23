@@ -124,21 +124,30 @@ export async function authRoutes(app: FastifyInstance) {
         password_hash: hash,
         email_verified_at: new Date().toISOString()
       }).select('id,email').single()
-      if (!error && user) {
-        const accessToken = jwt.sign({ sub: user.id }, secrets.access, { expiresIn: ACCESS_TTL })
-        const refreshToken = jwt.sign({ sub: user.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
-        try {
-          await supabase.from('sessions').insert({
-            user_id: user.id,
-            refresh_token: refreshToken,
-            expires_at: new Date(Date.now() + REFRESH_TTL * 1000).toISOString(),
-          })
-        } catch { }
-        setAuthCookies(reply, accessToken, refreshToken)
-        await logAudit('register_direct', { user_id: user.id, email, ip, ua: req.headers['user-agent'] as string })
-        return reply.send({ code: 0, msg: 'success', data: { user, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
+      if (error || !user) {
+        const supErr = error as any
+        const code = supErr?.code as string | undefined
+        let message = supErr?.message || 'database error'
+        if (code === '23502' || /null value in column "id"/i.test(message || '')) {
+          message = 'users.id 缺少默认值，请设置 DEFAULT gen_random_uuid()'
+        } else if (/row-level security/i.test(message || '') || /permission denied/i.test(message || '') || code === 'PGRST302' || code === '42501') {
+          message = 'RLS 阻止插入，请使用 SUPABASE_SERVICE_ROLE_KEY 或调整 users 表 RLS'
+        }
+        console.error('[REGISTER] supabase insert error:', supErr)
+        return reply.status(500).send({ code: 10002, msg: message, details: supErr?.details, db_code: code })
       }
-      // fallthrough to memory on error
+      const accessToken = jwt.sign({ sub: user.id }, secrets.access, { expiresIn: ACCESS_TTL })
+      const refreshToken = jwt.sign({ sub: user.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
+      try {
+        await supabase.from('sessions').insert({
+          user_id: user.id,
+          refresh_token: refreshToken,
+          expires_at: new Date(Date.now() + REFRESH_TTL * 1000).toISOString(),
+        })
+      } catch { }
+      setAuthCookies(reply, accessToken, refreshToken)
+      await logAudit('register_direct', { user_id: user.id, email, ip, ua: req.headers['user-agent'] as string })
+      return reply.send({ code: 0, msg: 'success', data: { user, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
     }
     if (memUsers.has(email)) return reply.send({ code: 10008, msg: '邮箱已注册' })
     const hash = await bcrypt.hash(password, SALT_ROUNDS)
@@ -169,7 +178,18 @@ export async function authRoutes(app: FastifyInstance) {
       password_hash: pending.password_hash,
       email_verified_at: new Date().toISOString()
     }).select('id,email').single()
-    if (error || !user) return reply.status(500).send({ code: 10002, msg: 'server error' })
+    if (error || !user) {
+      const supErr = error as any
+      const code = supErr?.code as string | undefined
+      let message = supErr?.message || 'database error'
+      if (code === '23502' || /null value in column "id"/i.test(message || '')) {
+        message = 'users.id 缺少默认值，请设置 DEFAULT gen_random_uuid()'
+      } else if (/row-level security/i.test(message || '') || /permission denied/i.test(message || '') || code === 'PGRST302' || code === '42501') {
+        message = 'RLS 阻止插入，请使用 SUPABASE_SERVICE_ROLE_KEY 或调整 users 表 RLS'
+      }
+      console.error('[VERIFY] supabase insert error:', supErr)
+      return reply.status(500).send({ code: 10002, msg: message, details: supErr?.details, db_code: code })
+    }
     await supabase.from('pending_registrations').delete().eq('email', email)
     await logAudit('register_verify', { user_id: user.id, email, ip, ua: req.headers['user-agent'] as string })
     return reply.send({ code: 0, msg: 'success' })
