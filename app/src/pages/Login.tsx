@@ -82,14 +82,24 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    getCaptcha().then(setCaptcha).catch(() => { });
+    getCaptcha().then(setCaptcha).catch(() => setCaptcha(null));
   }, []);
 
   const refreshCaptcha = async () => {
-    const c = await getCaptcha();
-    setCaptcha(c);
-    setCaptchaAnswer('');
+    try {
+      const c = await getCaptcha();
+      setCaptcha(c);
+      setCaptchaAnswer('');
+    } catch {
+      setCaptcha(null);
+    }
   };
+
+  useEffect(() => {
+    if (showEmailRegister) {
+      void refreshCaptcha();
+    }
+  }, [showEmailRegister]);
 
   // ───── Load user data ─────
   const loadUserData = async (userId: string) => {
@@ -409,7 +419,16 @@ export default function Login() {
 
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
-                      <div className="h-9 min-w-[100px] flex items-center justify-center" dangerouslySetInnerHTML={{ __html: captcha?.svg || '' }} />
+                      {captcha?.svg ? (
+                        <div
+                          className="h-9 min-w-[100px] flex items-center justify-center"
+                          dangerouslySetInnerHTML={{ __html: captcha.svg }}
+                        />
+                      ) : (
+                        <div className="h-9 min-w-[100px] flex items-center justify-center text-xs text-gray-400">
+                          点击刷新
+                        </div>
+                      )}
                       <Button type="button" variant="ghost" size="sm" onClick={refreshCaptcha} className="h-8 w-8 p-0">
                         <RefreshCcw className="w-4 h-4 text-gray-500" />
                       </Button>

@@ -1,4 +1,7 @@
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
+const envBase = (import.meta.env.VITE_API_BASE_URL || '').trim()
+const fallbackBase = import.meta.env.DEV ? 'http://localhost:8787' : 'https://pet-adoption-server-jvx2.onrender.com'
+const normalizedBase = envBase || fallbackBase
+export const API_BASE = normalizedBase.replace('https://pet-adoption-eabj.onrender.com', 'https://pet-adoption-server-jvx2.onrender.com')
 
 export async function postPetView(petId: number) {
   try {

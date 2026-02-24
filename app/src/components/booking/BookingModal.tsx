@@ -18,8 +18,12 @@ interface BookingModalProps {
 }
 
 const timeSlots = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+  '10:00-11:00',
+  '11:00-12:00',
+  '14:00-15:00',
+  '15:00-16:00',
+  '16:00-17:00',
+  '17:00-18:00',
 ];
 
 export default function BookingModal({ isOpen, onClose, petId, petName }: BookingModalProps) {
@@ -68,7 +72,7 @@ export default function BookingModal({ isOpen, onClose, petId, petName }: Bookin
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
             预约看宠 - {petName}
@@ -76,12 +80,11 @@ export default function BookingModal({ isOpen, onClose, petId, petName }: Bookin
         </DialogHeader>
 
         {step === 1 && (
-          <div className="space-y-4">
-            <p className="text-gray-600 text-sm">
+          <div className="space-y-6">
+            <p className="text-gray-500 text-sm">
               请选择您方便的日期和时间段到店参观
             </p>
 
-            {/* Calendar */}
             <div>
               <Label className="mb-2 block">选择日期</Label>
               <Calendar
@@ -89,36 +92,41 @@ export default function BookingModal({ isOpen, onClose, petId, petName }: Bookin
                 selected={date}
                 onSelect={setDate}
                 disabled={(date) => date < new Date() || date.getDay() === 0}
-                className="rounded-md border"
+                className="w-full rounded-xl border shadow-sm p-2 sm:p-3"
               />
             </div>
 
-            {/* Time Slots */}
-            {date && (
-              <div>
-                <Label className="mb-2 block">选择时间</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {timeSlots.map((slot) => (
+            <div>
+              <Label className="mb-2 block">选择时间段</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {timeSlots.map((slot) => {
+                  const isActive = time === slot
+                  const disabled = !date
+                  return (
                     <button
                       key={slot}
                       onClick={() => setTime(slot)}
-                      className={`p-2 rounded-lg text-sm transition-all ${
-                        time === slot
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      disabled={disabled}
+                      aria-pressed={isActive}
+                      className={`rounded-full px-3 py-2 text-sm font-medium transition-all border ${
+                        isActive
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                          : disabled
+                            ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-orange-200 hover:bg-orange-50'
                       }`}
                     >
                       {slot}
                     </button>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
-            )}
+            </div>
 
             <Button
               onClick={() => setStep(2)}
               disabled={!date || !time}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-sm hover:shadow-md active:translate-y-[1px]"
             >
               下一步
             </Button>
