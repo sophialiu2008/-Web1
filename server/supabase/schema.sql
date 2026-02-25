@@ -1,24 +1,27 @@
+create extension if not exists "pgcrypto";
+
 create table if not exists pets (
-  id bigint primary key,
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
   name text not null,
-  type text not null check (type in ('dog','cat')),
+  category text not null,
   breed text,
-  age text,
+  age_years numeric,
   gender text,
-  location text,
-  image text,
-  images text[] default '{}',
-  tags text[] default '{}',
+  province text,
+  city text,
+  district text,
   description text,
-  full_description text,
-  vaccinated boolean default false,
-  neutered boolean default false,
-  personality text[] default '{}',
+  is_vaccinated boolean default false,
+  is_neutered boolean default false,
+  personality_tags text[] default '{}',
+  personality_traits text[] default '{}',
   suitable_for text[] default '{}',
-  video_url text,
-  views int default 0,
-  is_featured boolean default false,
-  arrival_date date
+  images text[] default '{}',
+  status text default 'available',
+  view_count int default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists blog_posts (
@@ -40,7 +43,7 @@ create table if not exists blog_posts (
 
 create table if not exists favorites (
   user_id uuid references users(id) on delete cascade,
-  pet_id bigint references pets(id) on delete cascade,
+  pet_id uuid references pets(id) on delete cascade,
   created_at timestamptz default now(),
   primary key (user_id, pet_id)
 );
@@ -48,7 +51,7 @@ create table if not exists favorites (
 create table if not exists applications (
   id bigint generated always as identity primary key,
   user_id uuid not null,
-  pet_id bigint,
+  pet_id uuid,
   pet_name text,
   name text,
   phone text,
@@ -70,7 +73,7 @@ create table if not exists applications (
 create table if not exists bookings (
   id bigint generated always as identity primary key,
   user_id uuid not null,
-  pet_id bigint,
+  pet_id uuid,
   pet_name text,
   date date not null,
   time text not null,
@@ -86,12 +89,12 @@ create table if not exists analytics_events (
   meta jsonb
 );
 
-create or replace function increment_pet_views(pet_id_input bigint)
+create or replace function increment_pet_views(pet_id_input uuid)
 returns void
 language plpgsql
 as $$
 begin
-  update pets set views = coalesce(views,0) + 1 where id = pet_id_input;
+  update pets set view_count = coalesce(view_count,0) + 1 where id = pet_id_input;
 end;
 $$;
 
@@ -104,6 +107,8 @@ create table if not exists users (
   email_verified_at timestamptz,
   failed_attempts int not null default 0,
   locked_until timestamptz,
+  role text default 'user',
+  status text default 'active',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -156,5 +161,32 @@ create table if not exists auth_captchas (
   id text primary key,
   answer text not null,
   expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists stories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  pet_id uuid references pets(id) on delete set null,
+  pet_name text,
+  pet_type text,
+  adopter_name text,
+  location text,
+  title text not null,
+  content text not null,
+  full_story text,
+  rating int default 5,
+  images text[] default '{}',
+  avatar text,
+  status text default 'pending',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists adoptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  pet_id uuid not null references pets(id) on delete cascade,
+  application_id bigint references applications(id) on delete set null,
   created_at timestamptz not null default now()
 );

@@ -3,10 +3,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Star, Quote, Heart, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Play, Pause } from 'lucide-react';
+import { Star, Quote, Heart, Calendar, MapPin, ChevronLeft, ChevronRight, Share2, Play, Pause, Loader2 } from 'lucide-react';
+import { useStoryStore } from '@/store/storyStore';
+import { useUserStore } from '@/store/userStore';
+import { useNavigate } from 'react-router-dom';
+import StoryModal from '@/components/stories/StoryModal';
+import { toast } from 'sonner';
 
 interface Story {
-  id: number;
+  id: string | number;
   petName: string;
   petType: string;
   adopterName: string;
@@ -20,9 +25,10 @@ interface Story {
   fullStory: string;
 }
 
-const stories: Story[] = [
+// Fallback mock stories if needed, but we'll use dynamic ones
+const mockStories = [
   {
-    id: 1,
+    id: 'mock-1',
     petName: '旺财',
     petType: '金毛寻回犬',
     adopterName: '李先生一家',
@@ -35,41 +41,23 @@ const stories: Story[] = [
     content: '旺财来到我们家已经一年了，它给我们带来了无尽的欢乐。每天早上它都会准时叫我起床，晚上陪我看电视...',
     fullStory: '旺财来到我们家已经一年了，它给我们带来了无尽的欢乐。每天早上它都会准时叫我起床，晚上陪我看电视。记得刚来的时候它还很胆小，总是躲在角落里，但现在它已经完全融入了我们家，成为了不可或缺的一员。\n\n最让我感动的是，有一次我生病了躺在床上，旺财就一直在床边陪着我，用它的头蹭我的手，好像在安慰我。那一刻我真的觉得，领养它是我做过最正确的决定。\n\n感谢宠物领养中心，让我们遇到了这么好的伙伴！',
   },
-  {
-    id: 2,
-    petName: '咪咪',
-    petType: '橘猫',
-    adopterName: '张女士',
-    location: '上海市',
-    date: '2024年3月',
-    image: '/images/story2.jpg',
-    avatar: '/images/cat-orange.jpg',
-    rating: 5,
-    title: '女儿最好的玩伴',
-    content: '咪咪是我送给女儿的生日礼物，现在它和女儿形影不离。咪咪性格特别温顺，女儿怎么抱它都不会生气...',
-    fullStory: '咪咪是我送给女儿的生日礼物，现在它和女儿形影不离。咪咪性格特别温顺，女儿怎么抱它都不会生气。\n\n自从有了咪咪，女儿变得更有责任心了，每天放学回家第一件事就是给咪咪喂食、换水、清理猫砂。看着她们一起玩耍的画面，我觉得特别温馨。\n\n咪咪不仅是一只宠物，更是我们家庭的一员，是女儿成长路上最好的伙伴。',
-  },
-  {
-    id: 3,
-    petName: '豆豆',
-    petType: '柯基犬',
-    adopterName: '王大爷',
-    location: '广州市',
-    date: '2024年2月',
-    image: '/images/story3.jpg',
-    avatar: '/images/dog-corgi.jpg',
-    rating: 5,
-    title: '晚年最好的陪伴',
-    content: '退休后一个人住，儿女都在外地工作。自从领养了豆豆，我的生活变得充实多了。每天带它散步，和它说话...',
-    fullStory: '退休后一个人住，儿女都在外地工作。自从领养了豆豆，我的生活变得充实多了。每天带它散步，和它说话，它虽然不会回答，但总是用那双大眼睛认真地看着我，好像能听懂一样。\n\n豆豆特别聪明，学会了很多指令，坐下、握手、转圈都不在话下。邻居们都很喜欢它，每次出去散步都会引来一群小朋友围观。\n\n感谢宠物领养中心的工作人员，他们不仅帮我找到了豆豆，还经常打电话来询问情况，给了我很多养宠建议。',
-  },
 ];
 
 export default function SuccessStories() {
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const navigate = useNavigate();
+  const { isLoggedIn } = useUserStore();
+  const { stories: dynamicStories, fetchStories, isLoading, totalCount } = useStoryStore();
+  const [selectedStory, setSelectedStory] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const autoPlayRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stories = dynamicStories.length > 0 ? dynamicStories : mockStories;
+
+  useEffect(() => {
+    fetchStories();
+  }, [fetchStories]);
 
   // 自动轮播
   useEffect(() => {
@@ -138,15 +126,23 @@ export default function SuccessStories() {
             每一个领养故事都是一段温暖的旅程，
             听听他们怎么说...
           </p>
-          
+
           {/* Auto Play Control */}
-          <button
-            onClick={() => setIsAutoPlay(!isAutoPlay)}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
-          >
-            {isAutoPlay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            {isAutoPlay ? '暂停轮播' : '自动轮播'}
-          </button>
+          <div className="flex justify-center gap-4 mt-4">
+            <button
+              onClick={() => setIsAutoPlay(!isAutoPlay)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+            >
+              {isAutoPlay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {isAutoPlay ? '暂停轮播' : '自动轮播'}
+            </button>
+            {isLoading && (
+              <div className="inline-flex items-center gap-2 px-4 py-2 text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                正在加载故事...
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Featured Story - Large Card */}
@@ -161,7 +157,7 @@ export default function SuccessStories() {
                   className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent md:bg-gradient-to-r" />
-                
+
                 {/* Navigation Arrows */}
                 <div className="absolute bottom-4 right-4 flex gap-2">
                   <button
@@ -187,11 +183,10 @@ export default function SuccessStories() {
                         setIsAutoPlay(false);
                         setCurrentIndex(index);
                       }}
-                      className={`w-2 h-2 rounded-full transition-all ${
-                        index === currentIndex
-                          ? 'w-6 bg-white'
-                          : 'bg-white/50 hover:bg-white/80'
-                      }`}
+                      className={`w-2 h-2 rounded-full transition-all ${index === currentIndex
+                        ? 'w-6 bg-white'
+                        : 'bg-white/50 hover:bg-white/80'
+                        }`}
                     />
                   ))}
                 </div>
@@ -253,9 +248,8 @@ export default function SuccessStories() {
           {stories.map((story, index) => (
             <Card
               key={story.id}
-              className={`group overflow-hidden bg-white border-0 shadow-warm hover:shadow-warm-lg transition-all duration-500 hover:-translate-y-2 cursor-pointer ${
-                index === currentIndex ? 'ring-2 ring-orange-300' : ''
-              }`}
+              className={`group overflow-hidden bg-white border-0 shadow-warm hover:shadow-warm-lg transition-all duration-500 hover:-translate-y-2 cursor-pointer ${index === currentIndex ? 'ring-2 ring-orange-300' : ''
+                }`}
               onClick={() => {
                 setIsAutoPlay(false);
                 setCurrentIndex(index);
@@ -270,7 +264,7 @@ export default function SuccessStories() {
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                
+
                 {/* Quote Icon */}
                 <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center">
                   <Quote className="w-4 h-4 text-orange-500" />
@@ -317,7 +311,7 @@ export default function SuccessStories() {
           {[
             { value: '1,280+', label: '成功领养' },
             { value: '98%', label: '满意度' },
-            { value: '500+', label: '温暖故事' },
+            { value: `${totalCount > 100 ? totalCount : '500'}+`, label: '温暖故事' },
             { value: '24h', label: '平均审核时间' },
           ].map((stat, index) => (
             <div key={index} className="text-center p-6 bg-white rounded-2xl shadow-warm">
@@ -335,7 +329,14 @@ export default function SuccessStories() {
           <div className="flex justify-center gap-3">
             <Button
               variant="outline"
-              onClick={() => alert('故事分享功能即将上线，敬请期待！')}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  toast.error('请先登录后分享故事');
+                  navigate('/login');
+                  return;
+                }
+                setIsModalOpen(true);
+              }}
               className="rounded-full px-6 border-orange-200 text-orange-500 hover:bg-orange-50"
             >
               <Heart className="w-4 h-4 mr-2" />
@@ -413,7 +414,7 @@ export default function SuccessStories() {
 
                 {/* Full Story */}
                 <div className="prose prose-gray max-w-none">
-                  {selectedStory.fullStory.split('\n\n').map((paragraph, index) => (
+                  {selectedStory.fullStory.split('\n\n').map((paragraph: string, index: number) => (
                     <p key={index} className="text-gray-600 leading-relaxed mb-4">
                       {paragraph}
                     </p>
@@ -438,6 +439,11 @@ export default function SuccessStories() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Share Story Modal */}
+      <StoryModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </section>
   );
 }

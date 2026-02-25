@@ -23,7 +23,7 @@ import {
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, setApplications, setBookings } = useUserStore();
+  const { login, setApplications, setBookings, setTokens } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const strongPwd = (pwd: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(pwd);
 
@@ -38,6 +38,8 @@ export default function Login() {
   const [registerConfirm, setRegisterConfirm] = useState('');
   const [captcha, setCaptcha] = useState<{ id: string; svg: string } | null>(null);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [captchaError, setCaptchaError] = useState('');
 
   // ───── SMS OTP form ─────
   const [smsPhone, setSmsPhone] = useState('');
@@ -52,6 +54,17 @@ export default function Login() {
   const emailDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const getErrorMessage = (error: unknown) => {
     return error instanceof Error ? error.message : '';
+  };
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('请求超时')), ms);
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   };
 
   const triggerEmailCheck = useCallback((email: string) => {
@@ -82,16 +95,31 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
-    getCaptcha().then(setCaptcha).catch(() => setCaptcha(null));
+    setCaptchaLoading(true);
+    getCaptcha()
+      .then((c) => {
+        setCaptcha(c);
+        setCaptchaError('');
+      })
+      .catch(() => {
+        setCaptcha(null);
+        setCaptchaError('验证码加载失败，请点击刷新');
+      })
+      .finally(() => setCaptchaLoading(false));
   }, []);
 
   const refreshCaptcha = async () => {
+    setCaptchaLoading(true);
+    setCaptchaError('');
     try {
       const c = await getCaptcha();
       setCaptcha(c);
       setCaptchaAnswer('');
     } catch {
       setCaptcha(null);
+      setCaptchaError('验证码加载失败，请点击刷新');
+    } finally {
+      setCaptchaLoading(false);
     }
   };
 
@@ -152,10 +180,26 @@ export default function Login() {
     if (!loginEmailAddr || !loginPassword) { toast.error('请填写邮箱和密码'); return; }
     setIsLoading(true);
     try {
-      const j = await apiLoginEmail({ email: loginEmailAddr, password: loginPassword });
+      const j = await withTimeout(apiLoginEmail({ email: loginEmailAddr, password: loginPassword }), 20000);
       if (j.code !== 0) throw new Error(j.msg || '登录失败');
-      const userId = j.data?.user?.id || j.data?.sub || 'me';
-      login({ id: userId, name: loginEmailAddr.split('@')[0], phone: '', email: loginEmailAddr });
+      if (j.data?.access_token && j.data?.refresh_token && j.data?.expires_in) {
+        setTokens({
+          accessToken: j.data.access_token,
+          refreshToken: j.data.refresh_token,
+          expiresIn: j.data.expires_in
+        });
+      }
+      const userData = j.data?.user;
+      const userId = userData?.id || j.data?.sub || 'me';
+      login({
+        id: userId,
+        name: userData?.name || loginEmailAddr.split('@')[0],
+        phone: userData?.phone || '',
+        email: userData?.email || loginEmailAddr,
+        role: userData?.role,
+        status: userData?.status,
+        avatar: userData?.avatar
+      });
       await loadUserData(userId);
       toast.success('登录成功');
       navigate('/profile');
@@ -177,15 +221,29 @@ export default function Login() {
     if (!strongPwd(registerPassword)) { toast.error('密码至少8位，且需包含大小写字母和数字'); return; }
     setIsLoading(true);
     try {
-      const j = await apiRegisterEmail({
+      const j = await withTimeout(apiRegisterEmail({
         email: registerEmailAddr,
         password: registerPassword,
         captcha_id: captcha!.id,
         captcha_answer: captchaAnswer
-      });
+      }), 20000);
       if (j.code !== 0) throw new Error(j.msg || '注册失败');
-      const l = await apiLoginEmail({ email: registerEmailAddr, password: registerPassword });
+      if (j.data?.access_token && j.data?.refresh_token && j.data?.expires_in) {
+        setTokens({
+          accessToken: j.data.access_token,
+          refreshToken: j.data.refresh_token,
+          expiresIn: j.data.expires_in
+        });
+      }
+      const l = await withTimeout(apiLoginEmail({ email: registerEmailAddr, password: registerPassword }), 20000);
       if (l.code === 0) {
+        if (l.data?.access_token && l.data?.refresh_token && l.data?.expires_in) {
+          setTokens({
+            accessToken: l.data.access_token,
+            refreshToken: l.data.refresh_token,
+            expiresIn: l.data.expires_in
+          });
+        }
         const userId = l.data?.user?.id || j.data?.user?.id || l.data?.sub || 'me';
         login({ id: userId, name: registerEmailAddr.split('@')[0], phone: '', email: registerEmailAddr });
         await loadUserData(userId);
@@ -242,16 +300,27 @@ export default function Login() {
     }
     setIsLoading(true);
     try {
-      const j = await apiVerifySmsOtp(phoneDigits, smsCode);
+      const j = await withTimeout(apiVerifySmsOtp(phoneDigits, smsCode), 20000);
       if (j.code !== 0) throw new Error(j.msg || '验证失败');
+      if (j.data?.access_token && j.data?.refresh_token && j.data?.expires_in) {
+        setTokens({
+          accessToken: j.data.access_token,
+          refreshToken: j.data.refresh_token,
+          expiresIn: j.data.expires_in
+        });
+      }
       const userId = j.data?.user?.id || 'me';
       const phone = j.data?.user?.phone || phoneDigits;
       const email = j.data?.user?.email || '';
+      const userData = j.data?.user;
       login({
         id: userId,
-        name: email ? email.split('@')[0] : '手机用户' + phoneDigits.slice(-4),
-        phone,
-        email
+        name: userData?.name || (email ? email.split('@')[0] : '手机用户' + phoneDigits.slice(-4)),
+        phone: userData?.phone || phone,
+        email: userData?.email || email,
+        role: userData?.role,
+        status: userData?.status,
+        avatar: userData?.avatar
       });
       await loadUserData(userId);
       toast.success('登录成功');
@@ -418,15 +487,27 @@ export default function Login() {
                   </div>
 
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={refreshCaptcha}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') refreshCaptcha();
+                      }}
+                      className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100"
+                    >
                       {captcha?.svg ? (
                         <div
                           className="h-9 min-w-[100px] flex items-center justify-center"
                           dangerouslySetInnerHTML={{ __html: captcha.svg }}
                         />
+                      ) : captchaLoading ? (
+                        <div className="h-9 min-w-[100px] flex items-center justify-center text-xs text-gray-400">
+                          加载中...
+                        </div>
                       ) : (
                         <div className="h-9 min-w-[100px] flex items-center justify-center text-xs text-gray-400">
-                          点击刷新
+                          {captchaError || '点击刷新'}
                         </div>
                       )}
                       <Button type="button" variant="ghost" size="sm" onClick={refreshCaptcha} className="h-8 w-8 p-0">
@@ -468,7 +549,7 @@ export default function Login() {
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="login-pass">密码</Label>
-                      <a href="/forgot-password" icon-className="text-xs text-gray-400 hover:text-orange-600 transition-colors">忘记密码？</a>
+                      <a href="/forgot-password" className="text-xs text-gray-400 hover:text-orange-600 transition-colors">忘记密码？</a>
                     </div>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

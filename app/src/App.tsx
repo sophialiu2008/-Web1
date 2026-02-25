@@ -19,9 +19,19 @@ const BlogDetail = lazy(() => import('./pages/BlogDetail'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Login = lazy(() => import('./pages/Login'));
 const Privacy = lazy(() => import('./pages/Privacy'));
-const Admin = lazy(() => import('./pages/Admin'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const PetsNew = lazy(() => import('./pages/PetsNew'));
+const MyPets = lazy(() => import('./pages/MyPets'));
+
+// Admin Pages
+const AdminLayout = lazy(() => import('./pages/Admin/AdminLayout'));
+const AdminOverview = lazy(() => import('./pages/Admin/Overview'));
+const UserManagement = lazy(() => import('./pages/Admin/Users'));
+const ApplicationManagement = lazy(() => import('./pages/Admin/Applications'));
+const BookingManagement = lazy(() => import('./pages/Admin/Bookings'));
+const PetManagement = lazy(() => import('./pages/Admin/Pets'));
+const StoryModeration = lazy(() => import('./pages/Admin/Stories'));
 
 // Loading component
 function PageLoader() {
@@ -114,6 +124,14 @@ function App() {
             }
           />
           <Route
+            path="/pets/new"
+            element={
+              <MainLayout>
+                <PetsNew />
+              </MainLayout>
+            }
+          />
+          <Route
             path="/pet/:id"
             element={
               <MainLayout>
@@ -150,6 +168,14 @@ function App() {
             }
           />
           <Route
+            path="/profile/my-pets"
+            element={
+              <MainLayout>
+                <MyPets />
+              </MainLayout>
+            }
+          />
+          <Route
             path="/login"
             element={<Login />}
           />
@@ -172,11 +198,21 @@ function App() {
             }
           />
 
+          {/* Temporary Debug Route — remove after debugging */}
+          <Route path="/debug-user" element={
+            <pre style={{ padding: 24, fontSize: 14 }}>{JSON.stringify(
+              (() => { try { const raw = localStorage.getItem('user-storage'); return raw ? JSON.parse(raw) : 'No user-storage in localStorage'; } catch (e) { return String(e); } })(),
+              null, 2
+            )}</pre>
+          } />
+
           {/* Admin Pages */}
-          <Route
-            path="/admin"
-            element={<Admin />}
-          />
+          <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
+          <Route path="/admin/users" element={<AdminLayout><UserManagement /></AdminLayout>} />
+          <Route path="/admin/applications" element={<AdminLayout><ApplicationManagement /></AdminLayout>} />
+          <Route path="/admin/bookings" element={<AdminLayout><BookingManagement /></AdminLayout>} />
+          <Route path="/admin/pets" element={<AdminLayout><PetManagement /></AdminLayout>} />
+          <Route path="/admin/stories" element={<AdminLayout><StoryModeration /></AdminLayout>} />
 
           {/* 404 Page */}
           <Route

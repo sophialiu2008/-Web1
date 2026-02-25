@@ -1,0 +1,47 @@
+﻿{
+    "name":  "智创坊",
+    "breed":  "柴犬",
+    "age":  null,
+    "gender":  "未知",
+    "location":  null,
+    "image":  null,
+    "images":  [
+                   "https://ddychglsnqcwodcgwzcu.supabase.co/storage/v1/object/public/pet-images/734a94c8-e171-4f8d-be3c-0c445fa361d2/1771972142375__20260214180756_43_24.jpg"
+               ],
+    "tags":  [
+
+             ],
+    "description":  "收费十大大法师代发大萨达发的山东发斯蒂芬s",
+    "full_description":  null,
+    "vaccinated":  false,
+    "neutered":  false,
+    "personality":  [
+
+                    ],
+    "suitable_for":  [
+                         "有院子"
+                     ],
+    "video_url":  null,
+    "views":  0,
+    "is_featured":  false,
+    "arrival_date":  null,
+    "status":  "available",
+    "district":  "福田区",
+    "user_id":  "734a94c8-e171-4f8d-be3c-0c445fa361d2",
+    "category":  "其他",
+    "age_years":  4,
+    "province":  "广东",
+    "city":  "深圳市",
+    "is_vaccinated":  true,
+    "is_neutered":  true,
+    "personality_tags":  [
+                             "活泼"
+                         ],
+    "personality_traits":  [
+                               "警觉"
+                           ],
+    "view_count":  2,
+    "created_at":  "2026-02-24T22:29:05.16+00:00",
+    "updated_at":  "2026-02-24T22:29:12.46+00:00",
+    "id":  "26107197-ddc8-4265-9039-3f0bbe9e92ab"
+}

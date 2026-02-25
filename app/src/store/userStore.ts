@@ -7,6 +7,8 @@ export interface User {
   phone: string;
   email?: string;
   avatar?: string;
+  role?: string;
+  status?: string;
 }
 
 export interface AdoptionApplication {
@@ -34,25 +36,28 @@ interface UserState {
   accessToken?: string | null;
   refreshToken?: string | null;
   accessExpiresAt?: number | null;
-  favorites: number[];
+  favorites: (number | string)[];
   applications: AdoptionApplication[];
   bookings: Booking[];
-  compareList: number[];
+  compareList: (number | string)[];
 
   // Actions
   login: (user: User, tokens?: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
   logout: () => void;
   setTokens: (t: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
-  toggleFavorite: (petId: number) => void;
+  toggleFavorite: (petId: number | string) => void;
   addApplication: (application: AdoptionApplication) => void;
   updateApplicationStatus: (id: string, status: AdoptionApplication['status']) => void;
   addBooking: (booking: Booking) => void;
   cancelBooking: (id: string) => void;
   setApplications: (apps: AdoptionApplication[]) => void;
   setBookings: (bks: Booking[]) => void;
-  addToCompare: (petId: number) => void;
-  removeFromCompare: (petId: number) => void;
+  addToCompare: (petId: number | string) => void;
+  removeFromCompare: (petId: number | string) => void;
   clearCompare: () => void;
+  clearAuth: () => void;
+  isAdmin: () => boolean;
+  setUser: (user: User) => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -77,6 +82,12 @@ export const useUserStore = create<UserState>()(
       }),
 
       logout: () => set({ user: null, isLoggedIn: false, accessToken: null, refreshToken: null, accessExpiresAt: null, favorites: [], applications: [], bookings: [] }),
+
+      clearAuth: () => set({ user: null, isLoggedIn: false, accessToken: null, refreshToken: null, accessExpiresAt: null }),
+
+      isAdmin: () => get().user?.role === 'admin',
+
+      setUser: (user) => set({ user }),
 
       setTokens: (t) => set({ accessToken: t.accessToken, refreshToken: t.refreshToken, accessExpiresAt: Date.now() + t.expiresIn * 1000 }),
 

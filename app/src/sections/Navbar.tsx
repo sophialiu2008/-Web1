@@ -149,6 +149,18 @@ export default function Navbar() {
                         个人中心
                       </a>
                       <a
+                        href="/profile/my-pets"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/profile/my-pets');
+                          setShowUserMenu(false);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-500"
+                      >
+                        <PawPrint className="w-4 h-4" />
+                        我的发布
+                      </a>
+                      <a
                         href="/profile"
                         onClick={(e) => {
                           e.preventDefault();
@@ -266,6 +278,17 @@ export default function Navbar() {
                   className="px-4 py-3 rounded-xl text-gray-700 hover:text-orange-500 hover:bg-orange-50 font-medium"
                 >
                   个人中心
+                </a>
+                <a
+                  href="/profile/my-pets"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('/profile/my-pets');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="px-4 py-3 rounded-xl text-gray-700 hover:text-orange-500 hover:bg-orange-50 font-medium"
+                >
+                  我的发布
                 </a>
                 <button
                   onClick={() => {

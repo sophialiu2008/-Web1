@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUserStore } from '@/store/userStore';
-import { pets } from '@/data/pets';
+import { usePetStore } from '@/store/petStore';
+import { pets as mockPets } from '@/data/pets';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,7 +72,9 @@ export default function AdoptionForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoggedIn, addApplication } = useUserStore();
-  
+  const { pets: storePets } = usePetStore();
+
+  const allPets = useMemo(() => [...mockPets, ...storePets], [storePets]);
   const params = new URLSearchParams(location.search);
   const petIdFromQuery = params.get('pet');
   const getSavedFormData = (): Partial<FormData> | null => {
@@ -188,7 +191,7 @@ export default function AdoptionForm() {
 
   const handleInputChange = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // 验证字段
     const error = validateField(field, value);
     setErrors(prev => ({ ...prev, [field]: error }));
@@ -202,26 +205,26 @@ export default function AdoptionForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isLoggedIn) {
       setShowLoginPrompt(true);
       return;
     }
-    
+
     // 验证所有字段
     const newErrors: Partial<Record<keyof FormData, string>> = {};
     (Object.keys(formData) as (keyof FormData)[]).forEach(field => {
       const error = validateField(field, effectiveFormData[field]);
       if (error) newErrors[field] = error;
     });
-    
+
     setErrors(newErrors);
     setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-    
+
     if (Object.keys(newErrors).length === 0) {
       try {
-        const selectedId = effectiveFormData.selectedPetId ? parseInt(effectiveFormData.selectedPetId) : 0;
-        const petName = selectedId ? pets.find(p => p.id === selectedId)?.name || '未知宠物' : '未指定';
+        const selectedId = effectiveFormData.selectedPetId;
+        const petName = selectedId ? allPets.find(p => String(p.id) === String(selectedId))?.name || '未知宠物' : '未指定';
         const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         const makeUuid = () => {
           const cryptoObj = globalThis.crypto;
@@ -256,7 +259,7 @@ export default function AdoptionForm() {
         const created = await submitApplication(payload);
         const application = {
           id: String(created.id),
-          petId: created.pet_id || 0,
+          petId: created.pet_id || '',
           petName: created.pet_name || '未指定',
           status: created.status,
           submitDate: created.submit_date,
@@ -274,7 +277,7 @@ export default function AdoptionForm() {
   };
 
   const progress = calculateProgress(effectiveFormData);
-  const selectedPet = effectiveFormData.selectedPetId ? pets.find(p => p.id === parseInt(effectiveFormData.selectedPetId)) : null;
+  const selectedPet = effectiveFormData.selectedPetId ? allPets.find(p => String(p.id) === String(effectiveFormData.selectedPetId)) : null;
 
   return (
     <section id="contact" className="py-20 bg-white">
@@ -775,12 +778,12 @@ export default function AdoptionForm() {
               申请提交成功！
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="py-6">
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center animate-bounce">
               <CheckCircle2 className="w-10 h-10 text-green-500" />
             </div>
-            
+
             <p className="text-gray-600 mb-6">
               感谢您选择领养！我们已收到您的申请，工作人员会在3个工作日内与您联系。
             </p>

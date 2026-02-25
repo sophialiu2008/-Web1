@@ -1,13 +1,16 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useUserStore } from '@/store/userStore';
+import type { AdoptionApplication, Booking } from '@/store/userStore';
+import { fetchApplications, fetchBookings } from '@/services/api';
 import { pets } from '@/data/pets';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, Heart, FileText, Calendar, LogOut, 
-  CheckCircle2, Clock, Home, X, PawPrint 
+import {
+  User, Heart, FileText, Calendar, LogOut,
+  CheckCircle2, Clock, Home, X, PawPrint
 } from 'lucide-react';
 
 const statusMap: Record<string, { label: string; color: string; icon: typeof Clock }> = {
@@ -21,8 +24,50 @@ const statusMap: Record<string, { label: string; color: string; icon: typeof Clo
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, isLoggedIn, logout, favorites, applications, bookings } = useUserStore();
-  // const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const { user, isLoggedIn, logout, favorites, applications, bookings, setApplications, setBookings } = useUserStore();
+
+  // Re-fetch applications and bookings from server every time this page mounts
+  useEffect(() => {
+    if (!isLoggedIn || !user?.id) return;
+    const refresh = async () => {
+      try {
+        const [apps, bks] = await Promise.all([
+          fetchApplications(user.id),
+          fetchBookings(user.id)
+        ]);
+        if (Array.isArray(apps)) {
+          const mapped = apps
+            .filter((item: any): item is Record<string, unknown> => !!item && typeof item === 'object')
+            .map((item: any) => ({
+              id: String(item.id ?? ''),
+              petId: typeof item.pet_id === 'number' ? item.pet_id : 0,
+              petName: typeof item.pet_name === 'string' ? item.pet_name : '未指定',
+              status: (typeof item.status === 'string' ? item.status : 'pending') as AdoptionApplication['status'],
+              submitDate: typeof item.submit_date === 'string' ? item.submit_date : '',
+              updateDate: typeof item.update_date === 'string' ? item.update_date : '',
+              notes: typeof item.notes === 'string' ? item.notes : undefined
+            } satisfies AdoptionApplication));
+          setApplications(mapped);
+        }
+        if (Array.isArray(bks)) {
+          const mapped = bks
+            .filter((item: any): item is Record<string, unknown> => !!item && typeof item === 'object')
+            .map((item: any) => ({
+              id: String(item.id ?? ''),
+              petId: typeof item.pet_id === 'number' ? item.pet_id : 0,
+              petName: typeof item.pet_name === 'string' ? item.pet_name : '未指定',
+              date: typeof item.date === 'string' ? item.date : '',
+              time: typeof item.time === 'string' ? item.time : '',
+              status: (typeof item.status === 'string' ? item.status : 'pending') as Booking['status']
+            } satisfies Booking));
+          setBookings(mapped);
+        }
+      } catch {
+        // silently ignore refresh errors, stale data will remain visible
+      }
+    };
+    refresh();
+  }, [isLoggedIn, user?.id, setApplications, setBookings]);
 
   if (!isLoggedIn) {
     return (
@@ -65,17 +110,33 @@ export default function Profile() {
                 <p className="text-gray-500">{user?.phone}</p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                logout();
-                navigate('/');
-              }}
-              className="rounded-full"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              退出登录
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/profile/my-pets')}
+                className="rounded-full"
+              >
+                <PawPrint className="w-4 h-4 mr-2" />
+                我的发布
+              </Button>
+              <Button
+                onClick={() => navigate('/pets/new')}
+                className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+              >
+                发布宠物
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  logout();
+                  navigate('/');
+                }}
+                className="rounded-full"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                退出登录
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -230,15 +291,15 @@ export default function Profile() {
                             booking.status === 'confirmed'
                               ? 'bg-green-100 text-green-600'
                               : booking.status === 'cancelled'
-                              ? 'bg-red-100 text-red-600'
-                              : 'bg-yellow-100 text-yellow-600'
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-yellow-100 text-yellow-600'
                           }
                         >
                           {booking.status === 'confirmed'
                             ? '已确认'
                             : booking.status === 'cancelled'
-                            ? '已取消'
-                            : '待确认'}
+                              ? '已取消'
+                              : '待确认'}
                         </Badge>
                       </div>
                     </CardContent>

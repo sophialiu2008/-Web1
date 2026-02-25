@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPetById, getRelatedPets } from '@/data/pets';
+import type { HealthRecord } from '@/data/pets';
 import { useUserStore } from '@/store/userStore';
 import { useAnalyticsStore } from '@/store/analyticsStore';
 import { Button } from '@/components/ui/button';
@@ -9,36 +10,58 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ImageGallery from '@/components/lightbox/ImageGallery';
 import BookingModal from '@/components/booking/BookingModal';
-import { 
-  Heart, MapPin, Calendar, Share2, ArrowLeft, 
-  CheckCircle2, Stethoscope, 
+import {
+  Heart, MapPin, Calendar, Share2, ArrowLeft,
+  CheckCircle2, Stethoscope,
   Sparkles, Users
 } from 'lucide-react';
-import { postPetView } from '@/services/api';
+import { fetchPetDetail, postPetView } from '@/services/api';
+import { mapBackendPetToFrontend } from '@/utils/petMapper';
 
 export default function PetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { favorites, toggleFavorite, addToCompare, compareList } = useUserStore();
   const { trackPetView } = useAnalyticsStore();
-  const petId = useMemo(() => (id ? parseInt(id) : null), [id]);
+  const petId = useMemo(() => (id && /^\d+$/.test(id) ? parseInt(id) : null), [id]);
   const pet = useMemo(() => (petId ? getPetById(petId) : null), [petId]);
   const relatedPets = useMemo(() => (pet ? getRelatedPets(pet) : []), [pet]);
+  const [remotePet, setRemotePet] = useState<any | null>(null);
+  const [remoteError, setRemoteError] = useState(false);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   useEffect(() => {
     if (petId) {
       trackPetView(petId);
+      postPetView(petId);
     }
   }, [petId, trackPetView]);
 
   useEffect(() => {
-    if (petId) {
-      postPetView(petId);
+    if (!petId && id) {
+      fetchPetDetail(id)
+        .then((data) => {
+          setRemotePet(data);
+          setRemoteError(false);
+        })
+        .catch(() => {
+          setRemotePet(null);
+          setRemoteError(true);
+        });
     }
-  }, [petId]);
+  }, [id, petId]);
 
-  if (!pet) {
+  const remoteLoading = !petId && !!id && !remotePet && !remoteError;
+
+  if (!pet && remoteLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-gray-500">加载中...</div>
+      </div>
+    );
+  }
+
+  if (!pet && !remotePet) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -51,15 +74,44 @@ export default function PetDetail() {
     );
   }
 
-  const isFavorite = favorites.includes(pet.id);
-  const isInCompare = compareList.includes(pet.id);
+  const mappedRemote = remotePet ? mapBackendPetToFrontend(remotePet) : null;
+
+  const mappedLocal: any = pet ? {
+    id: pet.id,
+    name: pet.name,
+    type: pet.type,
+    breed: pet.breed,
+    age: pet.age,
+    gender: pet.gender,
+    location: pet.location,
+    image: pet.image,
+    images: pet.images,
+    tags: pet.tags,
+    description: pet.description,
+    fullDescription: pet.fullDescription,
+    vaccinated: pet.vaccinated,
+    neutered: pet.neutered,
+    personality: pet.personality,
+    suitableFor: pet.suitableFor,
+    views: pet.views,
+    isFeatured: pet.isFeatured,
+    healthRecords: pet.healthRecords
+  } : null;
+
+  const finalPet = mappedRemote || mappedLocal;
+
+  // Adapted logic for mixed ID types
+  const currentId = finalPet.id;
+  const canInteract = typeof currentId === 'number' || typeof currentId === 'string';
+  const isFavorite = canInteract && favorites.includes(currentId as any);
+  const isInCompare = canInteract && compareList.includes(currentId as any);
 
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `领养${pet.name} - 宠物领养中心`,
-          text: `${pet.name}是一只${pet.age}的${pet.breed}，${pet.description}`,
+          title: `领养${finalPet.name} - 宠物领养中心`,
+          text: `${finalPet.name}是一只${finalPet.age}的${finalPet.breed}，${finalPet.description}`,
           url: window.location.href,
         });
       } catch {
@@ -86,10 +138,11 @@ export default function PetDetail() {
             </button>
             <div className="flex gap-2">
               <button
-                onClick={() => toggleFavorite(pet.id)}
-                className={`p-2 rounded-full transition-colors ${
-                  isFavorite ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                onClick={() => {
+                  if (canInteract) toggleFavorite(currentId as any);
+                }}
+                className={`p-2 rounded-full transition-colors ${isFavorite ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
               >
                 <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
               </button>
@@ -108,7 +161,7 @@ export default function PetDetail() {
         <div className="grid lg:grid-cols-2 gap-8">
           {/* Left: Images */}
           <div>
-            <ImageGallery images={pet.images} mainImage={pet.image} petName={pet.name} />
+            <ImageGallery images={finalPet.images} mainImage={finalPet.image} petName={finalPet.name} />
           </div>
 
           {/* Right: Info */}
@@ -116,43 +169,43 @@ export default function PetDetail() {
             {/* Header */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Badge className={pet.type === 'dog' ? 'bg-blue-500' : 'bg-pink-500'}>
-                  {pet.type === 'dog' ? '狗狗' : '猫咪'}
+                <Badge className={finalPet.type === 'dog' ? 'bg-blue-500' : finalPet.type === 'cat' ? 'bg-pink-500' : 'bg-orange-500'}>
+                  {finalPet.category || (finalPet.type === 'dog' ? '狗狗' : '猫咪')}
                 </Badge>
                 <Badge variant="outline" className="text-orange-500 border-orange-200">
-                  {pet.breed}
+                  {finalPet.breed}
                 </Badge>
-                {pet.isFeatured && (
+                {finalPet.isFeatured && (
                   <Badge className="bg-amber-500">
                     <Sparkles className="w-3 h-3 mr-1" />
                     推荐
                   </Badge>
                 )}
               </div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">{pet.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">{finalPet.name}</h1>
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-4 h-4 text-orange-500" />
-                  {pet.age}
+                  {finalPet.age}
                 </span>
                 <span className="flex items-center gap-1">
-                  {pet.gender === 'male' ? '♂' : '♀'}
-                  {pet.gender === 'male' ? '公' : '母'}
+                  {finalPet.gender === 'male' ? '♂' : finalPet.gender === 'female' ? '♀' : '·'}
+                  {finalPet.gender === 'male' ? '公' : finalPet.gender === 'female' ? '母' : '未知'}
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4 text-orange-500" />
-                  {pet.location}
+                  {finalPet.location}
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-4 h-4 text-orange-500" />
-                  {pet.views} 次浏览
+                  {finalPet.views} 次浏览
                 </span>
               </div>
             </div>
 
             {/* Tags */}
             <div className="flex flex-wrap gap-2">
-              {pet.tags.map((tag) => (
+              {finalPet.tags.map((tag: string) => (
                 <span
                   key={tag}
                   className="px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-sm"
@@ -164,18 +217,18 @@ export default function PetDetail() {
 
             {/* Description */}
             <p className="text-gray-600 leading-relaxed">
-              {pet.fullDescription}
+              {finalPet.fullDescription}
             </p>
 
             {/* Health Status */}
             <div className="flex gap-4">
-              <div className={`flex items-center gap-2 ${pet.vaccinated ? 'text-green-600' : 'text-gray-400'}`}>
+              <div className={`flex items-center gap-2 ${finalPet.vaccinated ? 'text-green-600' : 'text-gray-400'}`}>
                 <CheckCircle2 className="w-5 h-5" />
-                <span>{pet.vaccinated ? '已疫苗' : '未疫苗'}</span>
+                <span>{finalPet.vaccinated ? '已疫苗' : '未疫苗'}</span>
               </div>
-              <div className={`flex items-center gap-2 ${pet.neutered ? 'text-green-600' : 'text-gray-400'}`}>
+              <div className={`flex items-center gap-2 ${finalPet.neutered ? 'text-green-600' : 'text-gray-400'}`}>
                 <CheckCircle2 className="w-5 h-5" />
-                <span>{pet.neutered ? '已绝育' : '未绝育'}</span>
+                <span>{finalPet.neutered ? '已绝育' : '未绝育'}</span>
               </div>
             </div>
 
@@ -184,7 +237,7 @@ export default function PetDetail() {
               <div>
                 <h4 className="font-medium text-gray-800 mb-2">性格特点</h4>
                 <div className="flex flex-wrap gap-1">
-                  {pet.personality.map((p, i) => (
+                  {finalPet.personality.map((p: string, i: number) => (
                     <span key={i} className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-md">
                       {p}
                     </span>
@@ -194,7 +247,7 @@ export default function PetDetail() {
               <div>
                 <h4 className="font-medium text-gray-800 mb-2">适合人群</h4>
                 <div className="flex flex-wrap gap-1">
-                  {pet.suitableFor.map((s, i) => (
+                  {finalPet.suitableFor.map((s: string, i: number) => (
                     <span key={i} className="px-2 py-1 bg-green-50 text-green-600 text-xs rounded-md">
                       {s}
                     </span>
@@ -206,7 +259,10 @@ export default function PetDetail() {
             {/* Action Buttons */}
             <div className="flex gap-3">
               <Button
-                onClick={() => navigate(`/?pet=${pet.id}#contact`)}
+                onClick={() => {
+                  if (canInteract) navigate(`/?pet=${currentId}#contact`);
+                }}
+                disabled={!canInteract}
                 className="flex-1 bg-orange-500 hover:bg-orange-600 text-white rounded-full"
               >
                 <Heart className="w-4 h-4 mr-2" />
@@ -215,15 +271,18 @@ export default function PetDetail() {
               <Button
                 onClick={() => setIsBookingOpen(true)}
                 variant="outline"
+                disabled={!canInteract}
                 className="flex-1 rounded-full border-orange-200 text-orange-500 hover:bg-orange-50"
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 预约看宠
               </Button>
               <Button
-                onClick={() => addToCompare(pet.id)}
+                onClick={() => {
+                  if (canInteract) addToCompare(currentId as any);
+                }}
                 variant="outline"
-                disabled={isInCompare}
+                disabled={isInCompare || !canInteract}
                 className="rounded-full border-gray-200"
               >
                 {isInCompare ? '已对比' : '对比'}
@@ -248,7 +307,7 @@ export default function PetDetail() {
                     健康记录
                   </h3>
                   <div className="space-y-4">
-                    {pet.healthRecords.map((record, index) => (
+                    {(finalPet.healthRecords || []).map((record: HealthRecord, index: number) => (
                       <div
                         key={index}
                         className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl"
@@ -306,8 +365,8 @@ export default function PetDetail() {
       <BookingModal
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
-        petId={pet.id}
-        petName={pet.name}
+        petId={currentId as any}
+        petName={finalPet.name}
       />
     </div>
   );

@@ -22,7 +22,8 @@ const secrets = {
 const strongPwd = (pwd: string) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(pwd)
 
 function setAuthCookies(reply: any, accessToken: string, refreshToken: string) {
-  const domain = process.env.COOKIE_DOMAIN || undefined
+  const rawDomain = process.env.COOKIE_DOMAIN || ''
+  const domain = rawDomain && !['localhost', '127.0.0.1', '0.0.0.0'].includes(rawDomain) ? rawDomain : undefined
   const secure = process.env.COOKIE_SECURE !== 'false'
   const common = { httpOnly: true, sameSite: 'strict' as const, secure, domain, path: '/' }
   reply.setCookie('access_token', accessToken, { ...common, maxAge: ACCESS_TTL })
@@ -122,8 +123,10 @@ export async function authRoutes(app: FastifyInstance) {
       const { data: user, error } = await supabase.from('users').insert({
         email,
         password_hash: hash,
-        email_verified_at: new Date().toISOString()
-      }).select('id,email').single()
+        email_verified_at: new Date().toISOString(),
+        role: 'user',
+        status: 'active'
+      }).select('id,email,role,status').single()
       if (error || !user) {
         const supErr = error as any
         const code = supErr?.code as string | undefined
@@ -136,8 +139,8 @@ export async function authRoutes(app: FastifyInstance) {
         console.error('[REGISTER] supabase insert error:', supErr)
         return reply.status(500).send({ code: 10002, msg: message, details: supErr?.details, db_code: code })
       }
-      const accessToken = jwt.sign({ sub: user.id }, secrets.access, { expiresIn: ACCESS_TTL })
-      const refreshToken = jwt.sign({ sub: user.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
+      const accessToken = jwt.sign({ sub: user.id, role: user.role }, secrets.access, { expiresIn: ACCESS_TTL })
+      const refreshToken = jwt.sign({ sub: user.id, role: user.role }, secrets.refresh, { expiresIn: REFRESH_TTL })
       try {
         await supabase.from('sessions').insert({
           user_id: user.id,
@@ -212,10 +215,10 @@ export async function authRoutes(app: FastifyInstance) {
       if (m) {
         const okm = await bcrypt.compare(password, m.password_hash)
         if (!okm) return reply.send({ code: 10010, msg: '邮箱或密码错误' })
-        const accessToken = jwt.sign({ sub: m.id }, secrets.access, { expiresIn: ACCESS_TTL })
-        const refreshToken = jwt.sign({ sub: m.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
+        const accessToken = jwt.sign({ sub: m.id, role: 'user' }, secrets.access, { expiresIn: ACCESS_TTL })
+        const refreshToken = jwt.sign({ sub: m.id, role: 'user' }, secrets.refresh, { expiresIn: REFRESH_TTL })
         setAuthCookies(reply, accessToken, refreshToken)
-        return reply.send({ code: 0, msg: 'success', data: { user: { id: m.id, email: m.email }, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
+        return reply.send({ code: 0, msg: 'success', data: { user: { id: m.id, email: m.email, role: 'user', status: 'active' }, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
       }
       await logAudit('login_failed', { email, ip, ua: req.headers['user-agent'] as string, detail: { reason: 'user_not_found' } })
       return reply.send({ code: 10010, msg: '邮箱或密码错误' })
@@ -232,8 +235,8 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.send({ code: 10010, msg: '邮箱或密码错误' })
     }
     await supabase!.from('users').update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq('id', user.id)
-    const accessToken = jwt.sign({ sub: user.id }, secrets.access, { expiresIn: ACCESS_TTL })
-    const refreshToken = jwt.sign({ sub: user.id }, secrets.refresh, { expiresIn: REFRESH_TTL })
+    const accessToken = jwt.sign({ sub: user.id, role: user.role }, secrets.access, { expiresIn: ACCESS_TTL })
+    const refreshToken = jwt.sign({ sub: user.id, role: user.role }, secrets.refresh, { expiresIn: REFRESH_TTL })
     await supabase!.from('sessions').insert({
       user_id: user.id,
       refresh_token: refreshToken,
@@ -241,7 +244,24 @@ export async function authRoutes(app: FastifyInstance) {
     })
     setAuthCookies(reply, accessToken, refreshToken)
     await logAudit('login_success', { user_id: user.id, email, ip, ua: req.headers['user-agent'] as string })
-    return reply.send({ code: 0, msg: 'success', data: { user: { id: user.id, email: user.email }, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
+    return reply.send({ code: 0, msg: 'success', data: { user: { id: user.id, email: user.email, role: user.role, status: user.status }, access_token: accessToken, refresh_token: refreshToken, expires_in: ACCESS_TTL } })
+  })
+
+  app.get('/v1/auth/me', async (req, reply) => {
+    if (!supabase) return reply.status(500).send({ code: 10002, msg: 'server error' })
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ code: 10011, msg: 'unauthorized' })
+    }
+    const token = authHeader.split(' ')[1]
+    try {
+      const decoded = jwt.verify(token, secrets.access) as any
+      const { data: user, error } = await supabase.from('users').select('id, email, name, phone, role, status, avatar').eq('id', decoded.sub).maybeSingle()
+      if (error || !user) return reply.status(404).send({ code: 10012, msg: 'user not found' })
+      return reply.send({ code: 0, msg: 'success', data: { user } })
+    } catch {
+      return reply.status(401).send({ code: 10011, msg: 'invalid token' })
+    }
   })
 
   app.post('/v1/auth/refresh-token', async (req, reply) => {
@@ -251,10 +271,14 @@ export async function authRoutes(app: FastifyInstance) {
     try {
       const decoded = jwt.verify(token, secrets.refresh) as any
       const userId = decoded.sub as string
+      const { data: user } = await supabase.from('users').select('id, role').eq('id', userId).maybeSingle()
+      if (!user) return reply.send({ code: 10011, msg: '无效的刷新凭证' })
+
       const { data: session } = await supabase.from('sessions').select('*').eq('refresh_token', token).maybeSingle()
       if (!session || session.used || new Date(session.expires_at).getTime() < Date.now()) return reply.send({ code: 10011, msg: '无效的刷新凭证' })
-      const accessToken = jwt.sign({ sub: userId }, secrets.access, { expiresIn: ACCESS_TTL })
-      const newRefresh = jwt.sign({ sub: userId }, secrets.refresh, { expiresIn: REFRESH_TTL })
+
+      const accessToken = jwt.sign({ sub: userId, role: user.role }, secrets.access, { expiresIn: ACCESS_TTL })
+      const newRefresh = jwt.sign({ sub: userId, role: user.role }, secrets.refresh, { expiresIn: REFRESH_TTL })
       await supabase.from('sessions').update({ used: true }).eq('id', session.id)
       await supabase.from('sessions').insert({
         user_id: userId,
@@ -416,8 +440,14 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     // 签发 JWT
-    const accessToken = jwt.sign({ sub: userId }, secrets.access, { expiresIn: ACCESS_TTL })
-    const refreshToken = jwt.sign({ sub: userId }, secrets.refresh, { expiresIn: REFRESH_TTL })
+    let userRole = 'user'
+    if (supabase) {
+      const { data: user } = await supabase.from('users').select('role').eq('id', userId).maybeSingle()
+      if (user) userRole = user.role
+    }
+
+    const accessToken = jwt.sign({ sub: userId, role: userRole }, secrets.access, { expiresIn: ACCESS_TTL })
+    const refreshToken = jwt.sign({ sub: userId, role: userRole }, secrets.refresh, { expiresIn: REFRESH_TTL })
 
     if (supabase) {
       try {
@@ -436,7 +466,7 @@ export async function authRoutes(app: FastifyInstance) {
       code: 0,
       msg: 'success',
       data: {
-        user: { id: userId, email: userEmail, phone },
+        user: { id: userId, email: userEmail, phone, role: userRole, status: 'active' },
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: ACCESS_TTL
