@@ -20,6 +20,9 @@ export interface Pet {
   views: number;
   isFeatured?: boolean;
   arrivalDate: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance?: number | null;
 }
 
 export interface HealthRecord {

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { fetchPetDetail, postPetView } from '@/services/api';
 import { mapBackendPetToFrontend } from '@/utils/petMapper';
+import PetLocationMap from '@/components/map/PetLocationMap';
 
 export default function PetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -294,8 +295,9 @@ export default function PetDetail() {
         {/* Tabs */}
         <div className="mt-12">
           <Tabs defaultValue="health" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsList className="grid w-full grid-cols-3 max-w-md">
               <TabsTrigger value="health">健康档案</TabsTrigger>
+              <TabsTrigger value="location">位置信息</TabsTrigger>
               <TabsTrigger value="related">相关推荐</TabsTrigger>
             </TabsList>
 
@@ -330,6 +332,24 @@ export default function PetDetail() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="location" className="mt-6">
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-orange-500" />
+                    宠物所在位置
+                  </h3>
+                  <p className="text-sm text-gray-500 mb-4">{finalPet.location || '位置未知'}</p>
+                  <PetLocationMap
+                    location={finalPet.location}
+                    latitude={finalPet.latitude}
+                    longitude={finalPet.longitude}
+                    petName={finalPet.name}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

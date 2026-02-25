@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { ImagePlus, X, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 import pcaData from '@/data/pca.json';
+import MapPicker from '@/components/map/MapPicker';
 
 const schema = z.object({
   name: z.string().min(1, '请填写宠物名称'),
@@ -57,6 +58,7 @@ export default function PetsNew() {
   const [customTag, setCustomTag] = useState('');
   const [customTrait, setCustomTrait] = useState('');
   const [customSuitable, setCustomSuitable] = useState('');
+  const [petLatLng, setPetLatLng] = useState<{ lat: number; lng: number } | null>(null);
 
   const compressImage = async (file: File, maxKB: number) => {
     if (!file.type.startsWith('image/')) return file;
@@ -268,6 +270,10 @@ export default function PetsNew() {
     form.append('personality_tags', JSON.stringify(values.personality_tags || []));
     form.append('personality_traits', JSON.stringify(values.personality_traits || []));
     form.append('suitable_for', JSON.stringify(values.suitable_for || []));
+    if (petLatLng) {
+      form.append('latitude', String(petLatLng.lat));
+      form.append('longitude', String(petLatLng.lng));
+    }
     const compressedImages = await Promise.all((values.images as File[]).map((file: File) => compressImage(file, 300)));
     compressedImages.forEach((file) => form.append('images', file));
     try {
@@ -416,6 +422,28 @@ export default function PetsNew() {
                       </Select>
                       {errors.district && <p className="text-xs text-red-500">{errors.district.message}</p>}
                     </div>
+                  </div>
+
+                  {/* Map Picker for precise location */}
+                  <div className="space-y-2">
+                    <Label>地图定位（可选）</Label>
+                    <p className="text-xs text-gray-400">在地图上点选精确位置，或使用定位按钮获取当前位置</p>
+                    <MapPicker
+                      height="250px"
+                      onLocationSelect={(loc) => {
+                        // Auto-fill province/city/district from map
+                        if (loc.province) {
+                          setValue('province', loc.province, { shouldValidate: true });
+                        }
+                        if (loc.city) {
+                          setValue('city', loc.city, { shouldValidate: true });
+                        }
+                        if (loc.district) {
+                          setValue('district', loc.district, { shouldValidate: true });
+                        }
+                        setPetLatLng({ lat: loc.lat, lng: loc.lng });
+                      }}
+                    />
                   </div>
 
                   <div className="space-y-3">

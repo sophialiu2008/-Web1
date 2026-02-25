@@ -74,7 +74,7 @@ export default function StoryModeration() {
                             <TableRow key={s.id} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>
                                     <div className="flex items-center gap-3">
-                                        <img src={s.avatar || s.images?.[0] || '/images/story1.jpg'} className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-sm" />
+                                        <img src={s.avatar || s.images?.[0] || '/images/story1.jpg'} onError={(e) => { (e.target as HTMLImageElement).src = '/images/story1.jpg' }} className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-sm" />
                                         <div className="max-w-[180px]">
                                             <div className="font-bold text-gray-800 truncate">{s.title}</div>
                                             <div className="flex items-center gap-1 text-[10px] text-yellow-500">

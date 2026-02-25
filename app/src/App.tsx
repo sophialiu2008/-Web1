@@ -10,6 +10,7 @@ import SuccessStories from './sections/SuccessStories';
 import AdoptionForm from './sections/AdoptionForm';
 import Footer from './sections/Footer';
 import ChatWidget from './components/chat/ChatWidget';
+import NearbyPets from './sections/NearbyPets';
 
 // Lazy loaded pages for better performance
 const PetDetail = lazy(() => import('./pages/PetDetail'));
@@ -78,6 +79,7 @@ function HomePage() {
         <Hero />
       </section>
       <PetGallery />
+      <NearbyPets />
       <AdoptionProcess />
       <SuccessStories />
       <AdoptionForm />

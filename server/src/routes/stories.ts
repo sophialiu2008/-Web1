@@ -39,6 +39,19 @@ export async function storiesRoutes(app: FastifyInstance) {
     app.post('/api/stories', async (req, reply) => {
         if (!supabase) return reply.status(500).send({ error: 'Supabase not configured' })
 
+        // Ensure storage bucket exists and is public (same bucket as pet images)
+        async function ensureBucket() {
+            try {
+                if (!supabase) return
+                const { error } = await supabase.storage.createBucket('pet-images', {
+                    public: true,
+                    fileSizeLimit: 5 * 1024 * 1024
+                })
+                if (error && !/already exists/i.test(error.message)) { }
+            } catch { }
+        }
+        await ensureBucket()
+
         const parts = req.parts()
         const payload: any = {
             images: []
@@ -47,19 +60,23 @@ export async function storiesRoutes(app: FastifyInstance) {
         for await (const part of parts) {
             if (part.type === 'file') {
                 const buffer = await part.toBuffer()
-                const fileName = `${randomUUID()}-${part.filename}`
+                const ext = (part.filename || '').match(/\.([a-zA-Z0-9]+)$/)?.[1] || 'jpg'
+                const fileName = `stories/${randomUUID()}.${ext}`
                 const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('pets') // Reusing pets bucket for now, or create 'stories' if you prefer
-                    .upload(`stories/${fileName}`, buffer, {
+                    .from('pet-images')
+                    .upload(fileName, buffer, {
                         contentType: part.mimetype,
                         upsert: false
                     })
 
-                if (uploadError) continue
+                if (uploadError) {
+                    console.error('[STORIES] upload error:', uploadError.message)
+                    continue
+                }
 
                 const { data: { publicUrl } } = supabase.storage
-                    .from('pets')
-                    .getPublicUrl(`stories/${fileName}`)
+                    .from('pet-images')
+                    .getPublicUrl(fileName)
 
                 payload.images.push(publicUrl)
             } else {

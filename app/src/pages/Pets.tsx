@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Heart, MapPin, Search, X, Dog, Cat, Filter,
-  Sparkles, BarChart2
+  Sparkles, BarChart2, Map, LayoutGrid
 } from 'lucide-react';
 import PetQuiz from '@/components/quiz/PetQuiz';
 import PetCompare from '@/components/compare/PetCompare';
+import MapContainer from '@/components/map/MapContainer';
 
 const CATEGORIES = [
   { id: 'all', name: '全部', icon: Filter },
@@ -33,6 +34,7 @@ export default function Pets() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
 
   useEffect(() => {
     fetchPets();
@@ -177,23 +179,69 @@ export default function Pets() {
           <p className="text-gray-600">
             找到 <span className="font-bold text-orange-500">{filteredPets.length}</span> 只宠物
           </p>
-          {(searchQuery || showFavoritesOnly || activeFilter !== 'all') && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setShowFavoritesOnly(false);
-                setActiveFilter('all');
-              }}
-              className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
-            >
-              <X className="w-4 h-4" />
-              清除筛选
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {(searchQuery || showFavoritesOnly || activeFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setShowFavoritesOnly(false);
+                  setActiveFilter('all');
+                }}
+                className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
+              >
+                <X className="w-4 h-4" />
+                清除筛选
+              </button>
+            )}
+            <div className="flex bg-gray-100 rounded-full p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                title="列表视图"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`p-2 rounded-full transition-all ${viewMode === 'map' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                title="地图视图"
+              >
+                <Map className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-0 py-0">
-          {isLoading ? (
+          {viewMode === 'map' ? (
+            <div className="bg-white rounded-2xl shadow-warm p-4">
+              <MapContainer
+                height="600px"
+                zoom={5}
+                center={[104.0, 35.5]}
+                markers={filteredPets
+                  .filter(p => p.latitude && p.longitude)
+                  .map(pet => ({
+                    position: [pet.longitude!, pet.latitude!] as [number, number],
+                    title: pet.name,
+                    content: `<div style="padding:8px;min-width:180px;cursor:pointer;" onclick="window.location.href='/pet/${pet.id}'">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                        <img src="${pet.image}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" onerror="this.src='/images/cat-orange.jpg'" />
+                        <div>
+                          <div style="font-weight:bold;font-size:14px;">${pet.name}</div>
+                          <div style="color:#666;font-size:12px;">${pet.breed}</div>
+                        </div>
+                      </div>
+                      <div style="font-size:12px;color:#999;">${pet.location}</div>
+                    </div>`,
+                  }))}
+                fitView
+              />
+              {filteredPets.filter(p => p.latitude && p.longitude).length === 0 && (
+                <p className="text-center text-gray-400 text-sm mt-4">暂无宠物有位置信息，新发布的宠物选择地图定位后将显示在地图上</p>
+              )}
+            </div>
+          ) : isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="bg-white rounded-3xl h-96 animate-pulse border border-gray-100" />
@@ -311,6 +359,6 @@ export default function Pets() {
 
       <PetQuiz isOpen={showQuiz} onClose={() => setShowQuiz(false)} />
       <PetCompare isOpen={showCompare} onClose={() => setShowCompare(false)} />
-    </div>
+    </div >
   );
 }

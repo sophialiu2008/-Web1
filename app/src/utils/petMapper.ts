@@ -19,6 +19,9 @@ export interface BackendPet {
     is_neutered?: boolean | null;
     view_count?: number | null;
     created_at?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    distance?: number | null;
 }
 
 export function mapBackendPetToFrontend(remotePet: BackendPet): Pet {
@@ -41,6 +44,9 @@ export function mapBackendPetToFrontend(remotePet: BackendPet): Pet {
         suitableFor: remotePet.suitable_for || [],
         views: remotePet.view_count || 0,
         healthRecords: [],
-        arrivalDate: remotePet.created_at || new Date().toISOString()
+        arrivalDate: remotePet.created_at || new Date().toISOString(),
+        latitude: remotePet.latitude ?? null,
+        longitude: remotePet.longitude ?? null,
+        distance: remotePet.distance ?? null,
     };
 }

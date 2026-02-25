@@ -20,6 +20,8 @@ create table if not exists pets (
   images text[] default '{}',
   status text default 'available',
   view_count int default 0,
+  latitude double precision,
+  longitude double precision,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -271,6 +271,8 @@ export async function petsRoutes(app: FastifyInstance) {
       suitable_for: parseStringArray(fields.suitable_for),
       images: uploadedUrls,
       status: 'available',
+      latitude: fields.latitude ? Number(fields.latitude) : null,
+      longitude: fields.longitude ? Number(fields.longitude) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }
@@ -343,6 +345,8 @@ export async function petsRoutes(app: FastifyInstance) {
       personality_traits: body.personality_traits ? parseStringArray(body.personality_traits) : undefined,
       suitable_for: body.suitable_for ? parseStringArray(body.suitable_for) : undefined,
       status: normalizeText(body.status),
+      latitude: body.latitude !== undefined ? Number(body.latitude) : undefined,
+      longitude: body.longitude !== undefined ? Number(body.longitude) : undefined,
       updated_at: new Date().toISOString()
     }
     const payload = cols
@@ -370,5 +374,50 @@ export async function petsRoutes(app: FastifyInstance) {
     const { error } = await supabase.from('pets').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', id)
     if (error) return reply.status(400).send({ error: error.message })
     return reply.send({ ok: true })
+  })
+
+  // Nearby pets endpoint
+  app.get('/api/pets/nearby', async (req, reply) => {
+    if (!supabase) return reply.status(500).send({ error: 'Supabase not configured' })
+    const { lat, lng, radius = 50, limit = 20 } = req.query as any
+    if (!lat || !lng) return reply.status(400).send({ error: 'lat and lng required' })
+
+    const userLat = Number(lat)
+    const userLng = Number(lng)
+    const maxRadius = Number(radius) // km
+    const maxResults = Math.min(Number(limit), 50)
+
+    // Fetch all available pets with coordinates
+    const { data, error } = await supabase
+      .from('pets')
+      .select('*')
+      .eq('status', 'available')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+
+    if (error) return reply.status(500).send({ error: error.message })
+    if (!data || data.length === 0) return reply.send({ data: [], total: 0 })
+
+    // Haversine distance calculation
+    function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+      const R = 6371 // km
+      const dLat = (lat2 - lat1) * Math.PI / 180
+      const dLng = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLng / 2) ** 2
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    }
+
+    const withDistance = data
+      .map(pet => ({
+        ...pet,
+        distance: haversine(userLat, userLng, pet.latitude, pet.longitude)
+      }))
+      .filter(pet => pet.distance <= maxRadius)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, maxResults)
+
+    return reply.send({ data: withDistance, total: withDistance.length })
   })
 }

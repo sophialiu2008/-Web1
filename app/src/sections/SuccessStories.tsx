@@ -155,6 +155,7 @@ export default function SuccessStories() {
                   src={stories[currentIndex].image}
                   alt={stories[currentIndex].title}
                   className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/images/story1.jpg' }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent md:bg-gradient-to-r" />
 
@@ -215,6 +216,7 @@ export default function SuccessStories() {
                     src={stories[currentIndex].avatar}
                     alt={stories[currentIndex].petName}
                     className="w-14 h-14 rounded-full object-cover border-2 border-orange-200"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-avatar.jpg' }}
                   />
                   <div>
                     <div className="font-bold text-gray-800">{stories[currentIndex].petName}</div>
@@ -262,6 +264,7 @@ export default function SuccessStories() {
                   src={story.image}
                   alt={story.title}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/images/story1.jpg' }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
 
@@ -276,6 +279,7 @@ export default function SuccessStories() {
                     src={story.avatar}
                     alt={story.petName}
                     className="w-10 h-10 rounded-full border-2 border-white object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-avatar.jpg' }}
                   />
                   <div className="text-white">
                     <div className="font-bold text-sm">{story.petName}</div>
@@ -370,6 +374,7 @@ export default function SuccessStories() {
                     src={selectedStory.image}
                     alt={selectedStory.title}
                     className="w-full h-64 object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/story1.jpg' }}
                   />
                 </div>
 
@@ -379,6 +384,7 @@ export default function SuccessStories() {
                     src={selectedStory.avatar}
                     alt={selectedStory.petName}
                     className="w-16 h-16 rounded-full object-cover border-2 border-white"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/images/default-avatar.jpg' }}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">

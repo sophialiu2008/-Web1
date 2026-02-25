@@ -414,3 +414,15 @@ export async function updateStoryStatus(id: string, status: string) {
   if (!r.ok) throw new Error('Failed to update story status')
   return r.json()
 }
+
+export async function fetchNearbyPets(params: { lat: number; lng: number; radius?: number; limit?: number }) {
+  const qs = new URLSearchParams({
+    lat: String(params.lat),
+    lng: String(params.lng),
+    ...(params.radius ? { radius: String(params.radius) } : {}),
+    ...(params.limit ? { limit: String(params.limit) } : {}),
+  })
+  const r = await fetch(`${API_BASE}/api/pets/nearby?${qs}`)
+  if (!r.ok) throw new Error('Failed to fetch nearby pets')
+  return r.json()
+}
