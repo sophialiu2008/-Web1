@@ -216,6 +216,7 @@ export default function Pets() {
           {viewMode === 'map' ? (
             <div className="bg-white rounded-2xl shadow-warm p-4">
               <MapContainer
+                key="pets-map-view"
                 height="600px"
                 zoom={5}
                 center={[104.0, 35.5]}

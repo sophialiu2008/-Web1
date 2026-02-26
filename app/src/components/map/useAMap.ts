@@ -3,17 +3,35 @@ import AMapLoader from '@amap/amap-jsapi-loader';
 
 let _AMap: any = null;
 let _loading: Promise<any> | null = null;
+let _loadError: Error | null = null;
 
 function loadAMap(): Promise<any> {
     if (_AMap) return Promise.resolve(_AMap);
+    if (_loadError) return Promise.reject(_loadError);
     if (_loading) return _loading;
+
+    const key = import.meta.env.VITE_AMAP_KEY || '';
+    console.log('高德地图Key:', key ? `${key.substring(0, 6)}****` : '(empty)');
+
+    if (!key) {
+        const err = new Error('VITE_AMAP_KEY is not configured');
+        _loadError = err;
+        return Promise.reject(err);
+    }
+
     _loading = AMapLoader.load({
-        key: import.meta.env.VITE_AMAP_KEY || '',
+        key,
         version: '2.0',
         plugins: ['AMap.Geocoder', 'AMap.Geolocation', 'AMap.PlaceSearch', 'AMap.InfoWindow'],
     }).then((AMap: any) => {
         _AMap = AMap;
+        _loadError = null;
         return AMap;
+    }).catch((err: any) => {
+        console.error('高德地图SDK加载失败:', err);
+        _loadError = err;
+        _loading = null; // allow retry
+        throw err;
     });
     return _loading;
 }
@@ -28,11 +46,19 @@ export function useAMap(
 ) {
     const mapRef = useRef<any>(null);
     const [ready, setReady] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [AMap, setAMap] = useState<any>(null);
 
     useEffect(() => {
         if (!containerRef.current) return;
         let destroyed = false;
+
+        // 10-second timeout
+        const timeoutTimer = setTimeout(() => {
+            if (!destroyed && !mapRef.current) {
+                setError('地图加载超时，请检查网络连接后刷新重试');
+            }
+        }, 10000);
 
         loadAMap().then((AMapClass) => {
             if (destroyed || !containerRef.current) return;
@@ -45,16 +71,32 @@ export function useAMap(
             mapRef.current = map;
             setAMap(AMapClass);
             setReady(true);
+            setError(null);
+            clearTimeout(timeoutTimer);
+
+            // Force resize after map init to handle conditional rendering containers
+            setTimeout(() => {
+                if (!destroyed && map) {
+                    map.resize();
+                }
+            }, 100);
 
             if (options?.onClick) {
                 map.on('click', (e: any) => {
                     options.onClick?.({ lng: e.lnglat.getLng(), lat: e.lnglat.getLat() });
                 });
             }
+        }).catch((err: any) => {
+            if (!destroyed) {
+                clearTimeout(timeoutTimer);
+                setError(err?.message || '地图加载失败，请刷新重试');
+                console.error('地图初始化失败:', err);
+            }
         });
 
         return () => {
             destroyed = true;
+            clearTimeout(timeoutTimer);
             if (mapRef.current) {
                 mapRef.current.destroy();
                 mapRef.current = null;
@@ -107,15 +149,30 @@ export function useAMap(
         (address: string): Promise<{ lng: number; lat: number } | null> => {
             if (!AMap) return Promise.resolve(null);
             return new Promise((resolve) => {
-                const geocoder = new AMap.Geocoder();
-                geocoder.getLocation(address, (status: string, result: any) => {
-                    if (status === 'complete' && result.geocodes?.length > 0) {
-                        const { lng, lat } = result.geocodes[0].location;
-                        resolve({ lng, lat });
-                    } else {
-                        resolve(null);
-                    }
-                });
+                // 8s internal timeout — if geocoder never calls back, resolve null
+                const timeout = setTimeout(() => {
+                    console.warn('Geocoder: 8s timeout for address:', address);
+                    resolve(null);
+                }, 8000);
+
+                try {
+                    const geocoder = new AMap.Geocoder({ city: '全国' });
+                    geocoder.getLocation(address, (status: string, result: any) => {
+                        clearTimeout(timeout);
+                        console.log('Geocoder status:', status, 'address:', address);
+                        if (status === 'complete' && result.geocodes?.length > 0) {
+                            const { lng, lat } = result.geocodes[0].location;
+                            resolve({ lng, lat });
+                        } else {
+                            console.warn('Geocoder: no results for', address, 'status:', status);
+                            resolve(null);
+                        }
+                    });
+                } catch (err) {
+                    clearTimeout(timeout);
+                    console.error('Geocoder init error:', err);
+                    resolve(null);
+                }
             });
         },
         [AMap]
@@ -172,10 +229,17 @@ export function useAMap(
         }
     }, []);
 
+    const resize = useCallback(() => {
+        if (mapRef.current) {
+            mapRef.current.resize();
+        }
+    }, []);
+
     return {
         map: mapRef,
         AMap,
         ready,
+        error,
         addMarker,
         clearMarkers,
         setCenter,
@@ -183,5 +247,6 @@ export function useAMap(
         reverseGeocode,
         getUserLocation,
         fitView,
+        resize,
     };
 }
