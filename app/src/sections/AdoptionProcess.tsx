@@ -382,14 +382,21 @@ export default function AdoptionProcess() {
                   联系我们
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[80vh] sm:h-[400px] rounded-t-3xl border-t bg-white pt-8">
-                <SheetHeader className="mb-6 px-4">
+              <SheetContent
+                side="bottom"
+                className="rounded-t-3xl border-t bg-white flex flex-col"
+                style={{ maxHeight: '90vh' }}
+              >
+                {/* ── 固定头部 ── */}
+                <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-gray-100">
                   <SheetTitle className="text-2xl font-bold text-center">联系我们的团队</SheetTitle>
                   <p className="text-center text-gray-500 text-sm mt-2">
                     如有任何领养相关问题，请留言给我们，我们会尽快与您联系。
                   </p>
                 </SheetHeader>
-                <div className="px-4 space-y-4 max-w-md mx-auto">
+
+                {/* ── 可滚动内容区 ── */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 max-w-md mx-auto w-full space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">您的称呼</label>
                     <Input placeholder="请输入您的姓名" />
@@ -402,7 +409,11 @@ export default function AdoptionProcess() {
                     <label className="text-sm font-medium text-gray-700">留言内容</label>
                     <Textarea rows={4} placeholder="请详细描述您的问题..." />
                   </div>
-                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full h-11 mt-4">
+                </div>
+
+                {/* ── 固定底部按钮 ── */}
+                <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 bg-white max-w-md mx-auto w-full">
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full h-11">
                     提交留言
                   </Button>
                 </div>
