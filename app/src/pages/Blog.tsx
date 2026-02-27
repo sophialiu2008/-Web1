@@ -4,6 +4,7 @@ import { blogPosts } from '@/data/blog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { ImageFallback } from '@/components/ui/image-fallback';
 import { Search, Clock, Eye, ArrowRight, Calendar } from 'lucide-react';
 
 const categories = ['全部', '养猫指南', '狗狗训练', '领养指南', '宠物健康'];
@@ -56,11 +57,10 @@ export default function Blog() {
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  selectedCategory === category
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-orange-50'
-                }`}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedCategory === category
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-white text-gray-600 hover:bg-orange-50'
+                  }`}
               >
                 {category}
               </button>
@@ -76,14 +76,14 @@ export default function Blog() {
               onClick={() => navigate(`/blog/${blogPosts[0].id}`)}
             >
               <div className="grid md:grid-cols-2">
-                <div className="aspect-video md:aspect-auto overflow-hidden">
-                  <img
+                <div className="aspect-video md:aspect-auto overflow-hidden relative group">
+                  <ImageFallback
                     src={blogPosts[0].coverImage}
                     alt={blogPosts[0].title}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
-                <div className="p-8 flex flex-col justify-center">
+                <div className="p-8 flex flex-col justify-center bg-white/50">
                   <Badge className="w-fit mb-4 bg-orange-100 text-orange-600">
                     {blogPosts[0].category}
                   </Badge>
@@ -126,17 +126,17 @@ export default function Blog() {
           {filteredPosts.map((post) => (
             <Card
               key={post.id}
-              className="overflow-hidden cursor-pointer hover:shadow-warm-lg transition-all group"
+              className="overflow-hidden cursor-pointer hover:shadow-warm-xl border-gray-100 transition-all duration-300 group hover:-translate-y-1"
               onClick={() => navigate(`/blog/${post.id}`)}
             >
-              <div className="aspect-video overflow-hidden">
-                <img
+              <div className="aspect-video overflow-hidden relative">
+                <ImageFallback
                   src={post.coverImage}
                   alt={post.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>
-              <CardContent className="p-5">
+              <CardContent className="p-6 bg-white">
                 <Badge className="mb-2 bg-orange-100 text-orange-600">
                   {post.category}
                 </Badge>

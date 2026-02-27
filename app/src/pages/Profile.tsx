@@ -3,11 +3,14 @@ import { useEffect } from 'react';
 import { useUserStore } from '@/store/userStore';
 import type { AdoptionApplication, Booking } from '@/store/userStore';
 import { fetchApplications, fetchBookings } from '@/services/api';
-import { pets } from '@/data/pets';
+import { pets as mockPets } from '@/data/pets';
+import { usePetStore } from '@/store/petStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   User, Heart, FileText, Calendar, LogOut,
   CheckCircle2, Clock, Home, X, PawPrint
@@ -25,6 +28,7 @@ const statusMap: Record<string, { label: string; color: string; icon: typeof Clo
 export default function Profile() {
   const navigate = useNavigate();
   const { user, isLoggedIn, logout, favorites, applications, bookings, setApplications, setBookings } = useUserStore();
+  const { pets: livePets, fetchPets } = usePetStore();
 
   // Re-fetch applications and bookings from server every time this page mounts
   useEffect(() => {
@@ -67,7 +71,8 @@ export default function Profile() {
       }
     };
     refresh();
-  }, [isLoggedIn, user?.id, setApplications, setBookings]);
+    fetchPets(); // Ensure live pets are fetched to show favorites
+  }, [isLoggedIn, user?.id, setApplications, setBookings, fetchPets]);
 
   if (!isLoggedIn) {
     return (
@@ -93,7 +98,11 @@ export default function Profile() {
     );
   }
 
-  const favoritePets = pets.filter((pet) => favorites.includes(pet.id));
+  // Combine live pets from server and mock pets
+  const allPets = [...livePets, ...mockPets];
+  // Convert favorite IDs to strings to ensure consistent matching whether UUID or mock number ID
+  const stringFavorites = favorites.map(String);
+  const favoritePets = allPets.filter((pet) => stringFavorites.includes(String(pet.id)));
 
   return (
     <div className="min-h-screen bg-warm-gradient">
@@ -191,17 +200,13 @@ export default function Profile() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20">
-                <Heart className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-xl font-bold text-gray-700 mb-2">暂无收藏</h3>
-                <p className="text-gray-500 mb-6">浏览宠物，收藏你喜欢的</p>
-                <Button
-                  onClick={() => navigate('/pets')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
-                >
-                  去浏览
-                </Button>
-              </div>
+              <EmptyState
+                icon={Heart}
+                title="暂无收藏"
+                description="浏览宠物，收藏你喜欢的"
+                actionText="去浏览"
+                onAction={() => navigate('/pets')}
+              />
             )}
           </TabsContent>
 
@@ -237,6 +242,28 @@ export default function Profile() {
                             {status.label}
                           </Badge>
                         </div>
+                        {/* Progress Tracker */}
+                        <div className="mt-4 mb-2">
+                          <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>提交申请</span>
+                            <span>审核中</span>
+                            <span>家访安排</span>
+                            <span>完成领养</span>
+                          </div>
+                          <Progress
+                            value={
+                              app.status === 'pending' ? 25 :
+                                app.status === 'reviewing' ? 50 :
+                                  app.status === 'home_visit' ? 75 :
+                                    app.status === 'approved' || app.status === 'completed' ? 100 : 0
+                            }
+                            className={`h-2 ${app.status === 'rejected' ? 'bg-red-100' : ''}`}
+                            indicatorClassName={
+                              app.status === 'rejected' ? 'bg-red-500' :
+                                app.status === 'completed' || app.status === 'approved' ? 'bg-green-500' : 'bg-orange-500'
+                            }
+                          />
+                        </div>
                         {app.notes && (
                           <div className="mt-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
                             {app.notes}
@@ -248,17 +275,13 @@ export default function Profile() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-20">
-                <FileText className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-xl font-bold text-gray-700 mb-2">暂无申请</h3>
-                <p className="text-gray-500 mb-6">提交领养申请，开始你的领养之旅</p>
-                <Button
-                  onClick={() => navigate('/pets')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
-                >
-                  去申请
-                </Button>
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="暂无申请"
+                description="提交领养申请，开始你的领养之旅"
+                actionText="去申请"
+                onAction={() => navigate('/pets')}
+              />
             )}
           </TabsContent>
 
@@ -266,7 +289,7 @@ export default function Profile() {
           <TabsContent value="bookings">
             {bookings.length > 0 ? (
               <div className="space-y-4">
-                {bookings.map((booking) => (
+                {bookings.map((booking: Booking) => (
                   <Card key={booking.id} className="overflow-hidden">
                     <CardContent className="p-6">
                       <div className="flex items-center justify-between">
@@ -307,17 +330,13 @@ export default function Profile() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-20">
-                <Calendar className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-xl font-bold text-gray-700 mb-2">暂无预约</h3>
-                <p className="text-gray-500 mb-6">预约到店看宠，找到心仪的伙伴</p>
-                <Button
-                  onClick={() => navigate('/pets')}
-                  className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
-                >
-                  去预约
-                </Button>
-              </div>
+              <EmptyState
+                icon={Calendar}
+                title="暂无预约"
+                description="预约到店看宠，找到心仪的伙伴"
+                actionText="去预约"
+                onAction={() => navigate('/pets')}
+              />
             )}
           </TabsContent>
         </Tabs>

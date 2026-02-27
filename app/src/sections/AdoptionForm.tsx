@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Mail, Phone, User, Home, MessageSquare, Send, CheckCircle2, PawPrint, Clock, MapPin, AlertCircle, Save } from 'lucide-react';
 import { submitApplication } from '@/services/api';
+import { toast } from 'sonner';
 
 const petTypes = [
   { value: 'dog', label: '狗狗' },
@@ -271,7 +272,7 @@ export default function AdoptionForm() {
         setIsSubmitted(true);
       } catch (e: unknown) {
         const message = e instanceof Error ? e.message : '';
-        alert(`提交失败：${message}`);
+        toast.error(`提交失败：${message}`);
       }
     }
   };

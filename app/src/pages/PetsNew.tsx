@@ -593,16 +593,18 @@ export default function PetsNew() {
                   <div className="grid lg:grid-cols-2 gap-6">
                     <div>
                       {imagePreviews[0] ? (
-                        <img src={imagePreviews[0]} alt="封面预览" className="w-full h-64 object-cover rounded-xl" />
+                        <>
+                          <img src={imagePreviews[0]} alt="封面预览" className="w-full h-64 object-cover rounded-xl shadow-sm" />
+                          {imagePreviews.length > 1 && (
+                            <div className="grid grid-cols-4 gap-2 mt-3">
+                              {imagePreviews.slice(1).map((src) => (
+                                <img key={src} src={src} alt="预览" className="w-full h-16 object-cover rounded-lg border border-gray-100 shadow-sm" />
+                              ))}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div className="w-full h-64 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400">暂无封面</div>
-                      )}
-                      {imagePreviews.length > 1 && (
-                        <div className="grid grid-cols-4 gap-2 mt-3">
-                          {imagePreviews.slice(1).map((src) => (
-                            <img key={src} src={src} alt="预览" className="w-full h-16 object-cover rounded-lg border border-gray-100" />
-                          ))}
-                        </div>
                       )}
                     </div>
                     <div className="space-y-3">

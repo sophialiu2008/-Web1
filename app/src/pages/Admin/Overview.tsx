@@ -47,7 +47,7 @@ export default function AdminOverview() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {cards.map((card, i) => (
-                    <Card key={i} className="border-none shadow-sm hover:shadow-md transition-shadow">
+                    <Card key={i} className="border-none shadow-warm hover:shadow-warm-lg transition-shadow">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className={`p-2 rounded-lg ${card.bg}`}>
@@ -68,7 +68,7 @@ export default function AdminOverview() {
             </div>
 
             <div className="grid lg:grid-cols-2 gap-8">
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-warm-lg">
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
                             <div className="w-1.5 h-6 bg-orange-500 rounded-full" />
@@ -92,7 +92,7 @@ export default function AdminOverview() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm bg-orange-500 text-white">
+                <Card className="border-none shadow-warm-lg bg-orange-500 text-white">
                     <CardContent className="p-8 h-full flex flex-col justify-between">
                         <div>
                             <h2 className="text-2xl font-bold mb-4">欢迎回来，管理员</h2>

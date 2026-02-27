@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, Suspense, lazy } from 'react';
 import { useAnalyticsStore } from '@/store/analyticsStore';
 import { Toaster } from 'sonner';
@@ -209,7 +209,8 @@ function App() {
           } />
 
           {/* Admin Pages */}
-          <Route path="/admin" element={<AdminLayout><AdminOverview /></AdminLayout>} />
+          <Route path="/admin" element={<Navigate to="/admin/overview" replace />} />
+          <Route path="/admin/overview" element={<AdminLayout><AdminOverview /></AdminLayout>} />
           <Route path="/admin/users" element={<AdminLayout><UserManagement /></AdminLayout>} />
           <Route path="/admin/applications" element={<AdminLayout><ApplicationManagement /></AdminLayout>} />
           <Route path="/admin/bookings" element={<AdminLayout><BookingManagement /></AdminLayout>} />

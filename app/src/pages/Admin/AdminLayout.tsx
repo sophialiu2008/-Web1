@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 const navItems = [
-    { path: '/admin', name: '概览', icon: LayoutDashboard },
+    { path: '/admin/overview', name: '概览', icon: LayoutDashboard },
     { path: '/admin/users', name: '用户管理', icon: Users },
     { path: '/admin/applications', name: '领养申请', icon: FileText },
     { path: '/admin/bookings', name: '预约管理', icon: Calendar },
@@ -37,32 +37,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     // 1. Wait for Zustand Hydration
     useEffect(() => {
-        const checkHydration = () => {
-            if ((useUserStore.persist as any).hasHydrated()) {
-                setIsHydrated(true);
-            } else {
-                setTimeout(checkHydration, 20);
-            }
-        };
-        checkHydration();
+        const unsub = (useUserStore.persist as any).onFinishHydration(() => setIsHydrated(true));
+        if ((useUserStore.persist as any).hasHydrated()) {
+            setIsHydrated(true);
+        }
+        return () => { if (unsub) unsub(); };
     }, []);
 
-    // 2. Handle Synchronization, Authentication Check, and Redirection — all in one effect
+    // 2. Handle Synchronization, Authentication Check, and Redirection
     useEffect(() => {
         const validateAccess = async () => {
             if (!isHydrated) return;
 
-            // ─── Debug logs (remove after issue is resolved) ───
-            const currentUser = useUserStore.getState().user;
-            console.log('[AdminGuard] 当前用户信息:', JSON.stringify(currentUser));
-            console.log('[AdminGuard] 当前 role 值:', currentUser?.role);
-            console.log('[AdminGuard] role 类型:', typeof currentUser?.role);
-            console.log('[AdminGuard] isLoggedIn:', isLoggedIn);
-            console.log('[AdminGuard] isAdmin():', isAdmin());
-
             // If not logged in at all, go to login
             if (!isLoggedIn) {
-                console.log('[AdminGuard] 未登录，跳转到 /login');
                 navigate('/login', { state: { from: location.pathname } });
                 setIsSyncPending(false);
                 return;
@@ -70,15 +58,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             // If logged in but not currently an admin in local state, try one last sync
             if (!isAdmin()) {
-                console.log('[AdminGuard] 本地 role 非 admin，尝试从服务器同步用户信息...');
                 try {
                     const res = await fetchProfile();
-                    console.log('[AdminGuard] fetchProfile 返回:', JSON.stringify(res?.data?.user));
                     if (res?.code === 0 && res?.data?.user) {
                         setUser(res.data.user);
-                        // Re-check after sync using the freshly fetched data
+                        // Re-check after sync
                         if (res.data.user.role === 'admin') {
-                            console.log('[AdminGuard] ✅ 服务器确认 role=admin，授权通过');
                             setIsAuthorized(true);
                             setIsSyncPending(false);
                             return;
@@ -88,14 +73,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     console.error('[AdminGuard] Profile sync failed:', error);
                 }
                 // Still not admin after sync
-                console.log('[AdminGuard] ❌ 同步后 role 仍非 admin，跳转到首页');
                 navigate('/');
                 setIsSyncPending(false);
                 return;
             }
 
             // Already admin in local state
-            console.log('[AdminGuard] ✅ 本地 role=admin，直接授权');
             setIsAuthorized(true);
             setIsSyncPending(false);
         };

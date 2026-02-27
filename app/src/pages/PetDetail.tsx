@@ -104,8 +104,8 @@ export default function PetDetail() {
   // Adapted logic for mixed ID types
   const currentId = finalPet.id;
   const canInteract = typeof currentId === 'number' || typeof currentId === 'string';
-  const isFavorite = canInteract && favorites.includes(currentId as any);
-  const isInCompare = canInteract && compareList.includes(currentId as any);
+  const isFavorite = canInteract && favorites.includes(String(currentId));
+  const isInCompare = canInteract && compareList.includes(String(currentId));
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -140,7 +140,7 @@ export default function PetDetail() {
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  if (canInteract) toggleFavorite(currentId as any);
+                  if (canInteract) toggleFavorite(String(currentId));
                 }}
                 className={`p-2 rounded-full transition-colors ${isFavorite ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -280,7 +280,7 @@ export default function PetDetail() {
               </Button>
               <Button
                 onClick={() => {
-                  if (canInteract) addToCompare(currentId as any);
+                  if (canInteract) addToCompare(String(currentId));
                 }}
                 variant="outline"
                 disabled={isInCompare || !canInteract}

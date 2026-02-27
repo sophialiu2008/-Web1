@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
+import { PawPrint, Image as ImageIcon } from 'lucide-react';
 
 type PetItem = {
   id: string;
@@ -122,25 +125,46 @@ export default function MyPets() {
           </Button>
         </div>
 
-        {loading && <div className="text-gray-500">加载中...</div>}
-        {empty && (
-          <div className="text-center py-20 bg-white rounded-2xl shadow-warm">
-            <p className="text-gray-600 mb-6">暂无发布记录</p>
-            <Button onClick={() => navigate('/pets/new')} className="bg-orange-500 hover:bg-orange-600 text-white rounded-full">
-              去发布
-            </Button>
+        {loading && (
+          <div className="grid md:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex gap-4 p-5 rounded-xl border border-gray-100 bg-white shadow-sm">
+                <Skeleton className="w-32 h-32 rounded-lg" />
+                <div className="flex-1 space-y-4">
+                  <Skeleton className="h-6 w-1/2" />
+                  <Skeleton className="h-4 w-1/3" />
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-20 rounded-md" />
+                    <Skeleton className="h-8 w-20 rounded-md" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+        )}
+        {empty && (
+          <EmptyState
+            icon={PawPrint}
+            title="暂无发布记录"
+            description="你还没有发布过任何宠物寻主信息。发布信息让更多流浪动物找到温暖的家吧！"
+            actionText="立即发布"
+            onAction={() => navigate('/pets/new')}
+            className="bg-white rounded-3xl shadow-warm border border-orange-50/50"
+          />
         )}
 
         {!loading && pets.length > 0 && (
           <div className="grid md:grid-cols-2 gap-6">
             {pets.map((pet) => (
               <Card key={pet.id} className="overflow-hidden border-0 shadow-warm">
-                <div className="aspect-[4/3] bg-gray-100">
+                <div className="aspect-[4/3] bg-gray-50 relative group">
                   {pet.images?.[0] ? (
-                    <img src={pet.images[0]} alt={pet.name} className="w-full h-full object-cover" />
+                    <img src={pet.images[0]} alt={pet.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">暂无图片</div>
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-100">
+                      <ImageIcon className="w-8 h-8 mb-2 text-gray-300" />
+                      <span className="text-sm">暂无图片</span>
+                    </div>
                   )}
                 </div>
                 <CardContent className="p-5">

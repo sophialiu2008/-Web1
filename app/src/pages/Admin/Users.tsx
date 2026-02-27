@@ -11,6 +11,8 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 export default function UserManagement() {
@@ -85,9 +87,35 @@ export default function UserManagement() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">加载中...</TableCell></TableRow>
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-8 h-8 rounded-full" />
+                                            <Skeleton className="h-4 w-20" />
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Skeleton className="h-4 w-32 mb-1" />
+                                        <Skeleton className="h-3 w-24" />
+                                    </TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto rounded-lg" /></TableCell>
+                                </TableRow>
+                            ))
                         ) : users.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">暂无数据</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-16">
+                                    <EmptyState
+                                        icon={Search}
+                                        title="暂无用户"
+                                        description="暂时没有符合搜索条件的用户数据。"
+                                        className="py-0"
+                                    />
+                                </TableCell>
+                            </TableRow>
                         ) : users.map((u) => (
                             <TableRow key={u.id} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>

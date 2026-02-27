@@ -10,6 +10,8 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 export default function StoryModeration() {
@@ -67,9 +69,35 @@ export default function StoryModeration() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">加载中...</TableCell></TableRow>
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-10 h-10 rounded-xl" />
+                                            <div>
+                                                <Skeleton className="h-4 w-32 mb-1" />
+                                                <Skeleton className="h-2 w-16" />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto rounded-lg" /></TableCell>
+                                </TableRow>
+                            ))
                         ) : stories.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">暂无故事</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-16">
+                                    <EmptyState
+                                        icon={Heart}
+                                        title="暂无故事"
+                                        description="目前还没有收到用户提交的任何温馨宠物领养故事。"
+                                        className="py-0"
+                                    />
+                                </TableCell>
+                            </TableRow>
                         ) : stories.map((s) => (
                             <TableRow key={s.id} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>

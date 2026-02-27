@@ -3,6 +3,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Search, FileText, Home, Heart, CheckCircle2, Play, Pause, ChevronRight, HelpCircle, Clock, Phone } from 'lucide-react';
 
 const steps = [
@@ -120,7 +123,7 @@ export default function AdoptionProcess() {
             我们致力于确保每一只宠物都能找到最适合的家庭，
             整个领养流程简单透明，让我们一起来看看如何开始吧。
           </p>
-          
+
           {/* Auto Play Control */}
           <button
             onClick={() => setIsAutoPlay(!isAutoPlay)}
@@ -136,7 +139,7 @@ export default function AdoptionProcess() {
           <div className="relative">
             {/* Connection Line */}
             <div className="absolute top-24 left-0 right-0 h-1 bg-gray-100">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-blue-500 via-purple-500 via-orange-500 to-pink-500 transition-all duration-500"
                 style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
               />
@@ -166,7 +169,7 @@ export default function AdoptionProcess() {
                       ${isCurrent ? 'scale-110 shadow-warm-lg animate-pulse-soft' : 'scale-100'}
                     `}>
                       <Icon className={`w-8 h-8 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                      
+
                       {/* Step Number */}
                       <div className={`
                         absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center
@@ -303,7 +306,7 @@ export default function AdoptionProcess() {
                   ))}
                 </ul>
               </div>
-              
+
               <div className="bg-white rounded-2xl p-6 shadow-warm">
                 <h4 className="text-lg font-bold text-gray-800 mb-4">
                   领养费用说明
@@ -345,12 +348,12 @@ export default function AdoptionProcess() {
               关于领养的疑问
             </h3>
           </div>
-          
+
           <div className="max-w-3xl mx-auto">
             <Accordion type="single" collapsible className="space-y-3">
               {faqs.map((faq, index) => (
-                <AccordionItem 
-                  key={index} 
+                <AccordionItem
+                  key={index}
                   value={`item-${index}`}
                   className="bg-white rounded-xl border-0 shadow-warm px-6 data-[state=open]:shadow-warm-lg"
                 >
@@ -364,18 +367,47 @@ export default function AdoptionProcess() {
               ))}
             </Accordion>
           </div>
-          
+
           {/* Contact CTA */}
           <div className="text-center mt-8">
             <p className="text-gray-600 mb-4">还有其他问题？</p>
-            <Button
-              variant="outline"
-              onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
-              className="rounded-full border-orange-200 text-orange-500 hover:bg-orange-50"
-            >
-              <Phone className="w-4 h-4 mr-2" />
-              联系我们
-            </Button>
+
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="rounded-full border-orange-200 text-orange-500 hover:bg-orange-50"
+                >
+                  <Phone className="w-4 h-4 mr-2" />
+                  联系我们
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[80vh] sm:h-[400px] rounded-t-3xl border-t bg-white pt-8">
+                <SheetHeader className="mb-6 px-4">
+                  <SheetTitle className="text-2xl font-bold text-center">联系我们的团队</SheetTitle>
+                  <p className="text-center text-gray-500 text-sm mt-2">
+                    如有任何领养相关问题，请留言给我们，我们会尽快与您联系。
+                  </p>
+                </SheetHeader>
+                <div className="px-4 space-y-4 max-w-md mx-auto">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">您的称呼</label>
+                    <Input placeholder="请输入您的姓名" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">联系方式</label>
+                    <Input placeholder="手机号码或微信号" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">留言内容</label>
+                    <Textarea rows={4} placeholder="请详细描述您的问题..." />
+                  </div>
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full h-11 mt-4">
+                    提交留言
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>

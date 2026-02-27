@@ -15,7 +15,7 @@ export default function PetGallery() {
   const navigate = useNavigate();
   const { favorites, toggleFavorite, compareList } = useUserStore();
   const { trackSearch } = useAnalyticsStore();
-  
+
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -24,25 +24,25 @@ export default function PetGallery() {
 
   const filteredPets = useMemo(() => {
     let result = pets;
-    
+
     if (activeFilter !== 'all') {
       result = result.filter(pet => pet.type === activeFilter);
     }
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(pet => 
+      result = result.filter(pet =>
         pet.name.toLowerCase().includes(query) ||
         pet.breed.toLowerCase().includes(query) ||
         pet.location.toLowerCase().includes(query) ||
         pet.tags.some(tag => tag.toLowerCase().includes(query))
       );
     }
-    
+
     if (showFavoritesOnly) {
-      result = result.filter(pet => favorites.includes(pet.id));
+      result = result.filter(pet => favorites.includes(String(pet.id) as never));
     }
-    
+
     return result;
   }, [activeFilter, searchQuery, showFavoritesOnly, favorites]);
 
@@ -144,32 +144,29 @@ export default function PetGallery() {
                 <button
                   key={filter.id}
                   onClick={() => setActiveFilter(filter.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${
-                    activeFilter === filter.id
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${activeFilter === filter.id
                       ? 'bg-orange-500 text-white shadow-warm'
                       : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {filter.name}
                 </button>
               );
             })}
-            
+
             <button
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${
-                showFavoritesOnly
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${showFavoritesOnly
                   ? 'bg-red-500 text-white shadow-warm'
                   : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-500'
-              }`}
+                }`}
             >
               <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-white' : ''}`} />
               我的收藏
               {favorites.length > 0 && (
-                <span className={`ml-1 px-2 py-0.5 text-xs rounded-full ${
-                  showFavoritesOnly ? 'bg-white/20' : 'bg-red-100 text-red-600'
-                }`}>
+                <span className={`ml-1 px-2 py-0.5 text-xs rounded-full ${showFavoritesOnly ? 'bg-white/20' : 'bg-red-100 text-red-600'
+                  }`}>
                   {favorites.length}
                 </span>
               )}
@@ -216,22 +213,21 @@ export default function PetGallery() {
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  
+
                   {/* Action Buttons */}
                   <div className="absolute top-3 right-3 flex flex-col gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        toggleFavorite(pet.id);
+                        toggleFavorite(String(pet.id));
                       }}
                       className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-110"
                     >
                       <Heart
-                        className={`w-5 h-5 transition-colors ${
-                          favorites.includes(pet.id)
+                        className={`w-5 h-5 transition-colors ${favorites.includes(String(pet.id) as never)
                             ? 'fill-red-500 text-red-500'
                             : 'text-gray-400'
-                        }`}
+                          }`}
                       />
                     </button>
                     <button
@@ -244,11 +240,10 @@ export default function PetGallery() {
 
                   {/* Type Badge */}
                   <div className="absolute top-3 left-3">
-                    <Badge className={`${
-                      pet.type === 'dog' 
-                        ? 'bg-blue-500/90 text-white' 
+                    <Badge className={`${pet.type === 'dog'
+                        ? 'bg-blue-500/90 text-white'
                         : 'bg-pink-500/90 text-white'
-                    }`}>
+                      }`}>
                       {pet.type === 'dog' ? '狗狗' : '猫咪'}
                     </Badge>
                   </div>
@@ -344,7 +339,7 @@ export default function PetGallery() {
 
       {/* Quiz Modal */}
       <PetQuiz isOpen={showQuiz} onClose={() => setShowQuiz(false)} />
-      
+
       {/* Compare Modal */}
       <PetCompare isOpen={showCompare} onClose={() => setShowCompare(false)} />
     </section>

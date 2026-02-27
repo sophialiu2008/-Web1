@@ -8,10 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Heart, MapPin, Search, X, Dog, Cat, Filter,
   Sparkles, BarChart2, Map, LayoutGrid
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import PetQuiz from '@/components/quiz/PetQuiz';
 import PetCompare from '@/components/compare/PetCompare';
 import MapContainer from '@/components/map/MapContainer';
@@ -69,7 +72,7 @@ export default function Pets() {
     }
 
     if (showFavoritesOnly) {
-      result = result.filter(pet => favorites.includes(pet.id as any));
+      result = result.filter(pet => favorites.includes(String(pet.id)));
     }
 
     return result;
@@ -141,15 +144,23 @@ export default function Pets() {
           <div className="flex justify-center gap-2 flex-wrap">
             {CATEGORIES.map((filter) => {
               const Icon = filter.icon;
+              const isActive = activeFilter === filter.id;
               return (
                 <button
                   key={filter.id}
                   onClick={() => setActiveFilter(filter.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all ${activeFilter === filter.id
-                    ? 'bg-orange-500 text-white shadow-warm'
+                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-colors z-10 ${isActive
+                    ? 'text-white'
                     : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
                     }`}
                 >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeCategory"
+                      className="absolute inset-0 bg-orange-500 rounded-full shadow-warm z-[-1]"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
                   <Icon className="w-4 h-4" />
                   {filter.name}
                 </button>
@@ -244,116 +255,136 @@ export default function Pets() {
             </div>
           ) : isLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-white rounded-3xl h-96 animate-pulse border border-gray-100" />
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col overflow-hidden h-[380px]">
+                  <Skeleton className="w-full aspect-[3/4] rounded-none" />
+                  <div className="p-5 flex flex-col gap-3">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <div className="flex gap-2 mt-auto">
+                      <Skeleton className="h-6 w-16 rounded-md" />
+                      <Skeleton className="h-6 w-16 rounded-md" />
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           ) : filteredPets.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredPets.map((pet) => (
-                <Card
-                  key={pet.id}
-                  className="group overflow-hidden bg-white border-0 shadow-warm hover:shadow-warm-lg transition-all duration-500 hover:-translate-y-2 cursor-pointer"
-                  onClick={() => navigate(`/pet/${pet.id}`)}
-                >
-                  <div className="relative aspect-[3/4] overflow-hidden">
-                    <img
-                      src={pet.image}
-                      alt={pet.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                    <div className="absolute top-3 right-3 flex flex-col gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(pet.id as any);
-                        }}
-                        className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-110"
-                      >
-                        <Heart
-                          className={`w-5 h-5 transition-colors ${favorites.includes(pet.id as any)
-                            ? 'fill-red-500 text-red-500'
-                            : 'text-gray-400'
-                            }`}
+            <motion.div
+              layout
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredPets.map((pet, index) => (
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    key={pet.id}
+                  >
+                    <Card
+                      className="group overflow-hidden bg-white border-0 shadow-warm hover:shadow-warm-lg transition-all duration-500 hover:-translate-y-2 cursor-pointer h-full"
+                      onClick={() => navigate(`/pet/${pet.id}`)}
+                    >
+                      <div className="relative aspect-[3/4] overflow-hidden">
+                        <img
+                          src={pet.image}
+                          alt={pet.name}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
-                      </button>
-                    </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-                    <div className="absolute top-3 left-3">
-                      <Badge className={`${pet.type === 'dog'
-                        ? 'bg-blue-500/90 text-white'
-                        : 'bg-pink-500/90 text-white'
-                        }`}>
-                        {pet.type === 'dog' ? '狗狗' : '猫咪'}
-                      </Badge>
-                    </div>
+                        <div className="absolute top-3 right-3 flex flex-col gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(String(pet.id));
+                            }}
+                            className="p-2 rounded-full bg-white/90 backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-110"
+                          >
+                            <Heart
+                              className={`w-5 h-5 transition-colors ${favorites.includes(String(pet.id))
+                                ? 'fill-red-500 text-red-500'
+                                : 'text-gray-400'
+                                }`}
+                            />
+                          </button>
+                        </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                      <p className="text-sm line-clamp-2">{pet.description}</p>
-                    </div>
-                  </div>
+                        <div className="absolute top-3 left-3">
+                          <Badge className={`${pet.type === 'dog'
+                            ? 'bg-blue-500/90 text-white'
+                            : 'bg-pink-500/90 text-white'
+                            }`}>
+                            {pet.type === 'dog' ? '狗狗' : '猫咪'}
+                          </Badge>
+                        </div>
 
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-1">{pet.name}</h3>
-                        <p className="text-sm text-gray-500">{pet.breed}</p>
+                        <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                          <p className="text-sm line-clamp-2">{pet.description}</p>
+                        </div>
                       </div>
-                      <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
-                        {pet.age}
-                      </Badge>
-                    </div>
 
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        {pet.location.split('市')[0]}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        {pet.gender === 'male' ? '♂' : '♀'}
-                        {pet.gender === 'male' ? '公' : '母'}
-                      </span>
-                    </div>
+                      <CardContent className="p-5 flex flex-col justify-between h-[calc(100%-75%)]">
+                        <div>
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-800 mb-1">{pet.name}</h3>
+                              <p className="text-sm text-gray-500">{pet.breed}</p>
+                            </div>
+                            <Badge variant="outline" className="text-orange-500 border-orange-200 bg-orange-50">
+                              {pet.age}
+                            </Badge>
+                          </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      {pet.tags.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-600"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {pet.tags.length > 2 && (
-                        <span className="px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-600">
-                          +{pet.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              {pet.location.split('市')[0]}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              {pet.gender === 'male' ? '♂' : '♀'}
+                              {pet.gender === 'male' ? '公' : '母'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 mt-auto">
+                          {pet.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-600"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {pet.tags.length > 2 && (
+                            <span className="px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-600">
+                              +{pet.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           ) : (
-            <div className="text-center py-20">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
-                <Search className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-700 mb-2">没有找到匹配的宠物</h3>
-              <p className="text-gray-500 mb-6">试试其他搜索词或筛选条件</p>
-              <Button
-                onClick={() => {
-                  setSearchQuery('');
-                  setShowFavoritesOnly(false);
-                  setActiveFilter('all');
-                }}
-                className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
-              >
-                查看全部宠物
-              </Button>
-            </div>
+            <EmptyState
+              icon={Search}
+              title="没有找到匹配的宠物"
+              description="试试其他搜索词或筛选条件"
+              actionText="查看全部宠物"
+              onAction={() => {
+                setSearchQuery('');
+                setShowFavoritesOnly(false);
+                setActiveFilter('all');
+              }}
+              className="py-20"
+            />
           )}
         </div>
       </main>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchAdminPets } from '@/services/api';
 import { Tag, User, MapPin, Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ImageFallback } from '@/components/ui/image-fallback';
 import {
     Table,
     TableBody,
@@ -10,6 +11,8 @@ import {
     TableHeader,
     TableRow
 } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 export default function PetManagement() {
@@ -57,14 +60,40 @@ export default function PetManagement() {
                     </TableHeader>
                     <TableBody>
                         {loading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">加载中...</TableCell></TableRow>
+                            Array.from({ length: 5 }).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Skeleton className="w-10 h-10 rounded-xl" />
+                                            <div>
+                                                <Skeleton className="h-4 w-20 mb-1" />
+                                                <Skeleton className="h-3 w-12" />
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-12 rounded-full" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto rounded-lg" /></TableCell>
+                                </TableRow>
+                            ))
                         ) : pets.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8 text-gray-400">库中无宠物</TableCell></TableRow>
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-16">
+                                    <EmptyState
+                                        icon={Tag}
+                                        title="库中无宠物"
+                                        description="系统平台中暂无任何待领养或已领养宠物记录。"
+                                        className="py-0"
+                                    />
+                                </TableCell>
+                            </TableRow>
                         ) : pets.map((p) => (
                             <TableRow key={p.id} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>
                                     <div className="flex items-center gap-3">
-                                        <img src={p.images?.[0] || '/images/cat-orange.jpg'} className="w-10 h-10 rounded-xl object-cover shrink-0 bg-gray-100" />
+                                        <ImageFallback src={p.images?.[0] || '/images/cat-orange.jpg'} alt={p.name} className="w-10 h-10 rounded-xl object-cover shrink-0 bg-gray-100" />
                                         <div>
                                             <div className="font-bold text-gray-800">{p.name}</div>
                                             <div className="text-xs text-orange-500 flex items-center gap-1">
