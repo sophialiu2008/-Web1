@@ -38,11 +38,55 @@ async function sendVerificationEmail(email: string, code: string) {
 }
 
 async function sendResetLink(email: string, token: string) {
-  const base = process.env.FRONTEND_BASE_URL || 'http://localhost:5173'
+  const base = process.env.FRONTEND_BASE_URL || 'https://www.petsoul.space'
   const link = `${base}/reset-password?token=${encodeURIComponent(token)}`
-  const html = `<p>请点击以下链接重置密码（1小时内有效）：</p><p><a href="${link}">${link}</a></p>`
-  await getMailer().send(email, '重置密码', html)
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"/></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:sans-serif;">
+  <div style="max-width:500px;margin:40px auto;background:white;
+              border-radius:16px;overflow:hidden;
+              box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+    <div style="background:white;padding:30px;text-align:center;
+                border-bottom:1px solid #f0f0f0;">
+      <div style="font-size:28px;margin-bottom:8px;">🐾</div>
+      <h2 style="margin:0;color:#f97316;font-size:20px;font-weight:bold;">宠物领养中心</h2>
+      <p style="margin:4px 0 0;color:#999;font-size:13px;">PetSoul.space</p>
+    </div>
+    <div style="padding:32px 30px;">
+      <h3 style="margin:0 0 16px;color:#333;font-size:17px;">密码重置申请</h3>
+      <p style="margin:0 0 12px;color:#555;line-height:1.6;">您好，我们收到了您账户的密码重置申请。</p>
+      <p style="margin:0 0 24px;color:#555;line-height:1.6;">
+        请点击下方按钮重置密码，链接 <strong style="color:#f97316;">30分钟</strong> 内有效：
+      </p>
+      <div style="text-align:center;margin:28px 0;">
+        <a href="${link}"
+           style="display:inline-block;padding:14px 40px;
+                  background:linear-gradient(135deg,#f97316,#fb923c);
+                  color:white;font-size:16px;font-weight:bold;
+                  text-decoration:none;border-radius:50px;
+                  box-shadow:0 4px 12px rgba(249,115,22,0.35);">
+          重置我的密码
+        </a>
+      </div>
+      <p style="margin:20px 0 0;color:#999;font-size:13px;line-height:1.6;">
+        如果按钮无法点击，请复制以下链接到浏览器地址栏：<br/>
+        <a href="${link}" style="color:#f97316;word-break:break-all;">${link}</a>
+      </p>
+    </div>
+    <div style="background:#fafafa;padding:20px 30px;
+                border-top:1px solid #f0f0f0;text-align:center;">
+      <p style="margin:0;color:#bbb;font-size:12px;line-height:1.8;">
+        如果您没有发起此请求，请忽略本邮件 — 您的账号依然安全。<br/>
+        © 2026 宠物领养中心 · PetSoul.space
+      </p>
+    </div>
+  </div>
+</body>
+</html>`
+  await getMailer().send(email, '【宠物领养中心】密码重置链接', html)
 }
+
 
 async function logAudit(event: string, params: { user_id?: string | null, email?: string | null, ip?: string, ua?: string, detail?: any }) {
   if (!supabase) return
