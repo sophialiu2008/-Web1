@@ -12,6 +12,7 @@ import { analyticsRoutes } from './routes/analytics.js'
 import { authRoutes } from './routes/auth.js'
 import { storiesRoutes } from './routes/stories.js'
 import { adminRoutes } from './routes/admin.js'
+import { chatRoutes } from './routes/chat.js'
 
 const app = Fastify({ logger: true })
 
@@ -34,6 +35,7 @@ await analyticsRoutes(app)
 await authRoutes(app)
 await storiesRoutes(app)
 await adminRoutes(app)
+await chatRoutes(app)
 
 const port = Number(process.env.PORT || 8787)
 const host = process.env.HOST || '0.0.0.0'
