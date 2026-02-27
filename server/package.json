@@ -11,13 +11,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@alicloud/dm20151123": "^1.8.3",
     "@alicloud/dysmsapi20170525": "^4.5.0",
     "@alicloud/openapi-client": "^0.4.15",
     "@alicloud/tea-util": "^1.4.11",
-    "@fastify/multipart": "^8.2.1",
     "@fastify/cookie": "^9.2.0",
     "@fastify/cors": "^8.4.2",
     "@fastify/formbody": "^7.4.0",
+    "@fastify/multipart": "^8.2.1",
     "@supabase/supabase-js": "^2.45.4",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.5",
