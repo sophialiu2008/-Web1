@@ -7,6 +7,8 @@ import { getMailer } from '../services/mailer.js'
 import { getClientIp, rateLimit } from '../utils/rateLimit.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { sendSmsOtp as smsServiceSend, verifySmsOtp as smsServiceVerify, normalizePhone } from '../services/sms.js'
+import { generateCode, sendSmsCode } from '../utils/sms.js'
+import { saveCode, verifyCode, hasRecentCode } from '../utils/codeStore.js'
 
 const ACCESS_TTL = 60 * 15
 const REFRESH_TTL = 60 * 60 * 24 * 7
@@ -516,5 +518,129 @@ export async function authRoutes(app: FastifyInstance) {
         expires_in: ACCESS_TTL
       }
     })
+  })
+
+  // ============================================
+  // USER SPECIFIED SMS ENDPOINTS
+  // ============================================
+
+  // POST /api/auth/send-code —— 发送验证码
+  app.post('/api/auth/send-code', async (req, reply) => {
+    try {
+      const b = req.body as any
+      const phone = b?.phone
+
+      if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+        return reply.status(400).send({ message: '请输入正确的手机号' })
+      }
+
+      if (hasRecentCode(phone)) {
+        return reply.status(429).send({ message: '发送过于频繁，请60秒后重试' })
+      }
+
+      const code = generateCode()
+
+      try {
+        await sendSmsCode(phone, code)
+        saveCode(phone, code)
+        return reply.send({ message: '验证码已发送，5分钟内有效' })
+      } catch (smsError: any) {
+        // 开发测试阶段兜底：短信发送失败时打印到控制台
+        console.log(`[开发模式] ${phone} 的验证码为: ${code}`, smsError?.message)
+        saveCode(phone, code)
+        return reply.send({ message: '验证码已发送，5分钟内有效' })
+      }
+    } catch (error) {
+      console.error('发送验证码失败:', error)
+      return reply.status(500).send({ message: '发送失败，请稍后重试' })
+    }
+  })
+
+  // POST /api/auth/login-by-phone —— 手机号登录/注册
+  app.post('/api/auth/login-by-phone', async (req, reply) => {
+    try {
+      const b = req.body as any
+      const phone = b?.phone
+      const code = b?.code
+
+      if (!phone || !code) {
+        return reply.status(400).send({ message: '请输入手机号和验证码' })
+      }
+
+      const isValid = verifyCode(phone, code)
+      if (!isValid) {
+        return reply.status(400).send({ message: '验证码错误或已过期' })
+      }
+
+      // 查找或自动注册用户
+      let user: any = null
+
+      if (supabase) {
+        const { data } = await supabase.from('users').select('*').eq('phone', phone).maybeSingle()
+        user = data
+
+        if (!user) {
+          const { data: newUser, error } = await supabase.from('users').insert({
+            phone,
+            role: 'user',
+            status: 'active',
+            email_verified_at: new Date().toISOString()
+          }).select('*').single()
+
+          if (error) {
+            console.error('[SMS-AUTH] auto register error:', error)
+            return reply.status(500).send({ message: '注册用户失败' })
+          }
+          user = newUser
+
+          try {
+            await supabase.from('profiles').upsert({
+              id: newUser.id,
+              phone,
+              display_name: `用户${phone.slice(-4)}`
+            })
+          } catch { }
+        }
+      } else {
+        return reply.status(500).send({ message: 'No database connection' })
+      }
+
+      const token = jwt.sign(
+        { sub: user.id, role: user.role, phone: user.phone },
+        secrets.access,
+        { expiresIn: ACCESS_TTL }
+      )
+
+      const refreshToken = jwt.sign(
+        { sub: user.id, role: user.role, phone: user.phone },
+        secrets.refresh,
+        { expiresIn: REFRESH_TTL }
+      )
+
+      if (supabase) {
+        try {
+          await supabase.from('sessions').insert({
+            user_id: user.id,
+            refresh_token: refreshToken,
+            expires_at: new Date(Date.now() + REFRESH_TTL * 1000).toISOString()
+          })
+        } catch { }
+      }
+
+      setAuthCookies(reply, token, refreshToken)
+
+      return reply.send({
+        token,
+        user: {
+          id: user.id,
+          username: `用户${phone.slice(-4)}`, // as requested by user snippet
+          phone: user.phone,
+          role: user.role
+        }
+      })
+    } catch (error) {
+      console.error('手机登录失败:', error)
+      return reply.status(500).send({ message: '登录失败，请稍后重试' })
+    }
   })
 }

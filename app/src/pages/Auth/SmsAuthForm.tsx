@@ -11,8 +11,7 @@ import { toast } from 'sonner';
 import {
     fetchApplications,
     fetchBookings,
-    sendSmsOtp as apiSendSmsOtp,
-    verifySmsOtp as apiVerifySmsOtp
+    API_BASE
 } from '@/services/api';
 
 const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
@@ -95,17 +94,25 @@ export function SmsAuthForm() {
 
     // ───── SMS: Send OTP ─────
     const handleSendOtp = async () => {
-        const phoneDigits = smsPhone.replace(/\D/g, '');
-        if (!/^1[3-9]\d{9}$/.test(phoneDigits)) {
-            toast.error('请输入正确的11位手机号');
+        const phone = smsPhone.replace(/\D/g, '');
+        if (smsCountdown > 0 || !phone || smsSending) return;
+
+        if (!/^1[3-9]\d{9}$/.test(phone)) {
+            toast.error('请输入正确的手机号');
             return;
         }
+
         setSmsSending(true);
         try {
-            const j = await apiSendSmsOtp(phoneDigits);
-            if (j.code !== 0) throw new Error(j.msg || '发送失败');
+            const res = await fetch(`${API_BASE}/api/auth/send-code`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.message || '发送失败');
+
             toast.success('验证码已发送');
-            // Start 60s countdown
             setSmsCountdown(60);
             countdownRef.current = setInterval(() => {
                 setSmsCountdown(prev => {
@@ -116,8 +123,8 @@ export function SmsAuthForm() {
                     return prev - 1;
                 });
             }, 1000);
-        } catch (e: unknown) {
-            toast.error(getErrorMessage(e) || '短信发送失败');
+        } catch (err: any) {
+            toast.error(err.message || '发送失败，请重试');
         } finally {
             setSmsSending(false);
         }
@@ -126,40 +133,47 @@ export function SmsAuthForm() {
     // ───── SMS: Verify OTP ─────
     const handleSmsLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const phoneDigits = smsPhone.replace(/\D/g, '');
-        if (!phoneDigits || smsCode.length < 6) {
-            toast.error('请输入手机号和6位验证码');
+        const phone = smsPhone.replace(/\D/g, '');
+        const code = smsCode;
+        if (!phone || !code) {
+            toast.error('请输入手机号和验证码');
             return;
         }
         setIsLoading(true);
         try {
-            const j = await withTimeout(apiVerifySmsOtp(phoneDigits, smsCode), 20000);
-            if (j.code !== 0) throw new Error(j.msg || '验证失败');
-            if (j.data?.access_token && j.data?.refresh_token && j.data?.expires_in) {
-                setTokens({
-                    accessToken: j.data.access_token,
-                    refreshToken: j.data.refresh_token,
-                    expiresIn: j.data.expires_in
-                });
-            }
-            const userId = j.data?.user?.id || 'me';
-            const phone = j.data?.user?.phone || phoneDigits;
-            const email = j.data?.user?.email || '';
-            const userData = j.data?.user;
+            const res = await fetch(`${API_BASE}/api/auth/login-by-phone`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, code })
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) throw new Error(data?.message || '登录失败');
+
+            // Integration with UserStore (existing standard)
+            setTokens({
+                accessToken: data.token,
+                refreshToken: data.token,
+                expiresIn: 7 * 24 * 60 * 60
+            });
+
+            const userId = data.user.id;
             login({
                 id: userId,
-                name: userData?.name || (email ? email.split('@')[0] : '手机用户' + phoneDigits.slice(-4)),
-                phone: userData?.phone || phone,
-                email: userData?.email || email,
-                role: userData?.role,
-                status: userData?.status,
-                avatar: userData?.avatar
+                name: data.user.username,
+                phone: data.user.phone,
+                role: data.user.role,
+                status: 'active'
             });
+
+            // As specifically requested by the instruction snippet
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+
             await loadUserData(userId);
             toast.success('登录成功');
-            navigate('/profile');
-        } catch (e: unknown) {
-            toast.error(getErrorMessage(e) || '验证失败');
+            navigate('/');
+        } catch (err: any) {
+            toast.error(err.message || '登录失败');
         } finally {
             setIsLoading(false);
         }
