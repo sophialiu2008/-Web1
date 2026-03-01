@@ -23,37 +23,34 @@ export async function storiesRoutes(app: FastifyInstance) {
         if (!userId) return reply.status(400).send({ error: 'user_id required' })
 
         const { data, error } = await supabase
-            .from('adoptions')
+            .from('applications')
             .select(`
+                id,
                 pet_id,
-                pets (
-                    name,
-                    type,
-                    image,
-                    breed,
-                    gender,
-                    age
-                )
+                pet_name,
+                pet_type
             `)
             .eq('user_id', userId)
+            .eq('status', 'approved')
 
         if (error) return reply.status(500).send({ error: error.message })
 
         // Format to flat array for frontend
         const uniqueAdoptions = Array.from(new Map(data.map((item: any) => [
-            item.pet_id,
+            item.pet_name, // Map by pet_name to ensure uniqueness if they applied multiple times
             {
-                pet_id: item.pet_id,
-                pet_name: item.pets?.name,
-                pet_type: item.pets?.type,
-                image: item.pets?.image,
-                breed: item.pets?.breed,
-                gender: item.pets?.gender,
-                age: item.pets?.age
+                pet_id: item.pet_id || String(item.id), // Provide a dummy ID if null so the select component has a value
+                pet_name: item.pet_name || '未知宠物',
+                pet_type: item.pet_type || '其他',
+                image: '/images/default-pet.jpg', // applications table doesn't have image, use fallback
+                breed: '',
+                gender: '',
+                age: ''
             }
         ])).values())
         return reply.send(uniqueAdoptions)
     })
+
 
     // Post a new story
     app.post('/api/stories', async (req, reply) => {
@@ -66,9 +63,17 @@ export async function storiesRoutes(app: FastifyInstance) {
                 return reply.status(400).send({ error: 'Missing required fields' })
             }
 
+            let finalPetId = payload.pet_id || null;
+            if (finalPetId) {
+                const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                if (!uuidRe.test(String(finalPetId))) {
+                    finalPetId = null;
+                }
+            }
+
             const row = {
                 user_id: payload.user_id,
-                pet_id: payload.pet_id || null,
+                pet_id: finalPetId,
                 pet_name: payload.pet_name || '未知宠物',
                 pet_type: payload.pet_type || '其他',
                 adopter_name: payload.adopter_name || '爱心人士',
