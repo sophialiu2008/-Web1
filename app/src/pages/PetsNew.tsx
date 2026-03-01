@@ -59,6 +59,7 @@ export default function PetsNew() {
   const [customTrait, setCustomTrait] = useState('');
   const [customSuitable, setCustomSuitable] = useState('');
   const [petLatLng, setPetLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSubmittingCustom, setIsSubmittingCustom] = useState(false);
 
   const compressImage = async (file: File, maxKB: number) => {
     if (!file.type.startsWith('image/')) return file;
@@ -253,42 +254,64 @@ export default function PetsNew() {
   const prevStep = () => setStep(step - 1);
 
   const onSubmit = async (values: any) => {
-    const form = new FormData();
-    form.append('name', values.name);
-    form.append('category', values.category);
-    if (values.breed) form.append('breed', values.breed);
-    if (values.age_years !== undefined && values.age_years !== null && values.age_years !== ('' as unknown as number)) {
-      form.append('age_years', String(values.age_years));
-    }
-    form.append('gender', values.gender);
-    form.append('province', values.province);
-    form.append('city', values.city);
-    form.append('district', values.district);
-    form.append('description', values.description);
-    form.append('is_vaccinated', String(values.is_vaccinated));
-    form.append('is_neutered', String(values.is_neutered));
-    form.append('personality_tags', JSON.stringify(values.personality_tags || []));
-    form.append('personality_traits', JSON.stringify(values.personality_traits || []));
-    form.append('suitable_for', JSON.stringify(values.suitable_for || []));
-    if (petLatLng) {
-      form.append('latitude', String(petLatLng.lat));
-      form.append('longitude', String(petLatLng.lng));
-    }
+    setIsSubmittingCustom(true);
+    setUploadProgress(10);
     const compressedImages = await Promise.all((values.images as File[]).map((file: File) => compressImage(file, 300)));
-    compressedImages.forEach((file) => form.append('images', file));
-    try {
-      const res = (await createPet(form, setUploadProgress)) as { id?: string; error?: string };
-      if (res.id) {
-        // Invalidate pet list cache
-        usePetStore.getState().invalidateCache();
 
+    const uploadForm = new FormData();
+    compressedImages.forEach((file) => uploadForm.append('file', file));
+
+    let uploadedUrls: string[] = [];
+    try {
+      const token = useUserStore.getState().accessToken;
+      const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8789';
+      const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: uploadForm
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error || '上传图片失败');
+      uploadedUrls = uploadData.urls;
+      setUploadProgress(50);
+    } catch (e: any) {
+      toast.error(e.message || '上传图片失败');
+      setUploadProgress(0);
+      setIsSubmittingCustom(false);
+      return;
+    }
+
+    const payload = {
+      name: values.name,
+      category: values.category,
+      breed: values.breed,
+      age_years: values.age_years !== undefined && values.age_years !== null && values.age_years !== '' ? Number(values.age_years) : null,
+      gender: values.gender,
+      province: values.province,
+      city: values.city,
+      district: values.district,
+      description: values.description,
+      is_vaccinated: Boolean(values.is_vaccinated),
+      is_neutered: Boolean(values.is_neutered),
+      personality_tags: values.personality_tags || [],
+      personality_traits: values.personality_traits || [],
+      suitable_for: values.suitable_for || [],
+      latitude: petLatLng?.lat,
+      longitude: petLatLng?.lng,
+      image: uploadedUrls[0],
+      gallery: uploadedUrls
+    };
+
+    try {
+      const res = (await createPet(payload, setUploadProgress)) as { id?: string; error?: string };
+      setUploadProgress(100);
+      if (res.id) {
+        usePetStore.getState().invalidateCache();
         toast.success('发布成功');
         navigate(`/pet/${res.id}`);
         return;
       }
-      const msg = res.error || '发布失败，请稍后重试';
-      toast.error(msg);
-      console.error('Create pet failed:', res);
+      toast.error(res.error || '发布失败，请稍后重试');
     } catch (err) {
       const error = err as { status?: number };
       const msg = getErrorText(err);
@@ -301,11 +324,8 @@ export default function PetsNew() {
         navigate('/login');
       }
       console.error('Create pet error:', err);
-      try {
-        console.error('Create pet error detail:', JSON.stringify(err));
-      } catch {
-        console.error('Create pet error detail: [unserializable]');
-      }
+    } finally {
+      setIsSubmittingCustom(false);
     }
   };
 
@@ -630,9 +650,9 @@ export default function PetsNew() {
                       <p className="text-sm text-gray-600 leading-relaxed">{descriptionValue || '暂无介绍'}</p>
                     </div>
                   </div>
-                  {isSubmitting && (
+                  {isSubmittingCustom && (
                     <div className="space-y-2">
-                      <div className="text-sm text-gray-600">上传中 {uploadProgress}%</div>
+                      <div className="text-sm text-gray-600">处理中...</div>
                       <Progress value={uploadProgress} />
                     </div>
                   )}
@@ -652,7 +672,7 @@ export default function PetsNew() {
                     下一步
                   </Button>
                 ) : (
-                  <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={isSubmitting}>
+                  <Button type="submit" className="bg-orange-500 hover:bg-orange-600 text-white" disabled={isSubmittingCustom || isSubmitting}>
                     确认发布
                   </Button>
                 )}

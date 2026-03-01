@@ -7,20 +7,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Heart, MapPin, Dog, Cat, Filter, Search, X, Share2, BarChart2, Sparkles } from 'lucide-react';
+import { Filter, Search, X, Share2, BarChart2, Sparkles, Heart, MapPin, Dog, Cat } from 'lucide-react';
 import PetQuiz from '@/components/quiz/PetQuiz';
-import PetCompare from '@/components/compare/PetCompare';
 
 export default function PetGallery() {
   const navigate = useNavigate();
-  const { favorites, toggleFavorite, compareList } = useUserStore();
+  const { favorites, toggleFavorite, compareList, setCompareOpen } = useUserStore();
   const { trackSearch } = useAnalyticsStore();
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
 
   const filteredPets = useMemo(() => {
     let result = pets;
@@ -106,7 +104,7 @@ export default function PetGallery() {
             </Button>
             {compareList.length > 0 && (
               <Button
-                onClick={() => setShowCompare(true)}
+                onClick={() => setCompareOpen(true)}
                 className="rounded-full bg-orange-500 hover:bg-orange-600 text-white"
               >
                 <BarChart2 className="w-4 h-4 mr-2" />
@@ -145,8 +143,8 @@ export default function PetGallery() {
                   key={filter.id}
                   onClick={() => setActiveFilter(filter.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${activeFilter === filter.id
-                      ? 'bg-orange-500 text-white shadow-warm'
-                      : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
+                    ? 'bg-orange-500 text-white shadow-warm'
+                    : 'bg-white text-gray-600 hover:bg-orange-50 hover:text-orange-500'
                     }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -158,8 +156,8 @@ export default function PetGallery() {
             <button
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-medium transition-all duration-300 ${showFavoritesOnly
-                  ? 'bg-red-500 text-white shadow-warm'
-                  : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-500'
+                ? 'bg-red-500 text-white shadow-warm'
+                : 'bg-white text-gray-600 hover:bg-red-50 hover:text-red-500'
                 }`}
             >
               <Heart className={`w-4 h-4 ${showFavoritesOnly ? 'fill-white' : ''}`} />
@@ -225,8 +223,8 @@ export default function PetGallery() {
                     >
                       <Heart
                         className={`w-5 h-5 transition-colors ${favorites.includes(String(pet.id) as never)
-                            ? 'fill-red-500 text-red-500'
-                            : 'text-gray-400'
+                          ? 'fill-red-500 text-red-500'
+                          : 'text-gray-400'
                           }`}
                       />
                     </button>
@@ -241,8 +239,8 @@ export default function PetGallery() {
                   {/* Type Badge */}
                   <div className="absolute top-3 left-3">
                     <Badge className={`${pet.type === 'dog'
-                        ? 'bg-blue-500/90 text-white'
-                        : 'bg-pink-500/90 text-white'
+                      ? 'bg-blue-500/90 text-white'
+                      : 'bg-pink-500/90 text-white'
                       }`}>
                       {pet.type === 'dog' ? '狗狗' : '猫咪'}
                     </Badge>
@@ -339,9 +337,6 @@ export default function PetGallery() {
 
       {/* Quiz Modal */}
       <PetQuiz isOpen={showQuiz} onClose={() => setShowQuiz(false)} />
-
-      {/* Compare Modal */}
-      <PetCompare isOpen={showCompare} onClose={() => setShowCompare(false)} />
     </section>
   );
 }

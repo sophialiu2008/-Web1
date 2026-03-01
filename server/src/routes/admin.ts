@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { supabase } from '../supabase.js'
+import { sendNotificationSms } from '../utils/sms.js'
 
 export async function adminRoutes(app: FastifyInstance) {
     // Middleware to check if user is admin (simple check for now, can be improved with JWT role verification)
@@ -92,8 +93,23 @@ export async function adminRoutes(app: FastifyInstance) {
             })
         }
 
+        // 4. Send Notification SMS
+        try {
+            const { data: userData } = await supabase!.from('users').select('phone').eq('id', user_id).single()
+            if (userData?.phone) {
+                if (status === 'approved') {
+                    await sendNotificationSms(userData.phone, process.env.ALIBABA_SMS_TEMPLATE_ADOPTION_PASS || 'SMS_ADOPTION_PASS')
+                } else if (status === 'rejected') {
+                    await sendNotificationSms(userData.phone, process.env.ALIBABA_SMS_TEMPLATE_ADOPTION_REJECT || 'SMS_ADOPTION_REJECT')
+                }
+            }
+        } catch (err) {
+            console.error('[ADMIN] Failed to send adoption notification SMS:', err)
+        }
+
         return { success: true }
     })
+
 
     // Booking Management
     app.get('/api/admin/bookings', async (req, reply) => {
@@ -111,8 +127,25 @@ export async function adminRoutes(app: FastifyInstance) {
     app.post('/api/admin/bookings/:id/status', async (req, reply) => {
         const { id } = req.params as any
         const { status } = req.body as any
+
+        const { data: booking } = await supabase!.from('bookings').select('*, users(phone)').eq('id', id).single()
+
         const { error } = await supabase!.from('bookings').update({ status }).eq('id', id)
         if (error) return reply.status(500).send({ error: error.message })
+
+        try {
+            const phone = booking?.users?.phone || booking?.phone
+            if (phone) {
+                if (status === 'confirmed') {
+                    await sendNotificationSms(phone, process.env.ALIBABA_SMS_TEMPLATE_BOOKING_CONFIRM || 'SMS_BOOKING_CONFIRM')
+                } else if (status === 'cancelled') {
+                    await sendNotificationSms(phone, process.env.ALIBABA_SMS_TEMPLATE_BOOKING_CANCEL || 'SMS_BOOKING_CANCEL')
+                }
+            }
+        } catch (err) {
+            console.error('[ADMIN] Failed to send booking notification SMS:', err)
+        }
+
         return { success: true }
     })
 

@@ -21,7 +21,7 @@ interface StoryState {
     isLoading: boolean;
     totalCount: number;
     fetchStories: () => Promise<void>;
-    createStory: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
+    createStory: (payload: any) => Promise<{ success: boolean; error?: string }>;
     fetchMyAdoptions: () => Promise<any[]>;
 }
 
@@ -61,17 +61,21 @@ export const useStoryStore = create<StoryState>((set, get) => ({
         }
     },
 
-    createStory: async (formData: FormData) => {
+    createStory: async (payload: any) => {
         const user = useUserStore.getState().user;
         if (!user) return { success: false, error: '请先登录' };
 
-        formData.append('user_id', user.id);
-        formData.append('adopter_name', user.name || '爱心人士');
+        payload.user_id = user.id;
+        payload.adopter_name = user.name || '爱心人士';
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'}/api/stories`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8789'}/api/stories`, {
                 method: 'POST',
-                body: formData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${useUserStore.getState().accessToken}`
+                },
+                body: JSON.stringify(payload),
             });
 
             const result = await response.json();

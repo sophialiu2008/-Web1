@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useUserStore } from '@/store/userStore';
 import type { AdoptionApplication, Booking } from '@/store/userStore';
-import { fetchApplications, fetchBookings } from '@/services/api';
+import { fetchApplications, fetchBookings, fetchFavorites, fetchMyAdoptions } from '@/services/api';
 import { pets as mockPets } from '@/data/pets';
 import { usePetStore } from '@/store/petStore';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/ui/empty-state';
+import StoryModal from '@/components/stories/StoryModal';
 import {
   User, Heart, FileText, Calendar, LogOut,
-  CheckCircle2, Clock, Home, X, PawPrint
+  CheckCircle2, Clock, Home, X, PawPrint, Edit3
 } from 'lucide-react';
+import ProfileEditModal from '@/components/profile/ProfileEditModal';
 
 const statusMap: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: '待审核', color: 'bg-yellow-100 text-yellow-600', icon: Clock },
@@ -27,18 +29,32 @@ const statusMap: Record<string, { label: string; color: string; icon: typeof Clo
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, isLoggedIn, logout, favorites, applications, bookings, setApplications, setBookings } = useUserStore();
+  const { user, isLoggedIn, logout, favorites, applications, bookings, setApplications, setBookings, toggleFavorite, setFavorites } = useUserStore();
   const { pets: livePets, fetchPets } = usePetStore();
+  const [favoritePetsData, setFavoritePetsData] = useState<any[]>([]);
+  const [myPets, setMyPets] = useState<any[]>([]);
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [sharePetId, setSharePetId] = useState<string | null>(null);
 
   // Re-fetch applications and bookings from server every time this page mounts
   useEffect(() => {
     if (!isLoggedIn || !user?.id) return;
     const refresh = async () => {
       try {
-        const [apps, bks] = await Promise.all([
+        const [apps, bks, favs, adoptions] = await Promise.all([
           fetchApplications(user.id),
-          fetchBookings(user.id)
+          fetchBookings(user.id),
+          fetchFavorites(user.id),
+          fetchMyAdoptions(user.id).catch(() => [])
         ]);
+        if (Array.isArray(adoptions)) {
+          setMyPets(adoptions);
+        }
+        if (Array.isArray(favs)) {
+          setFavoritePetsData(favs);
+          setFavorites(favs.map((p: any) => String(p.id)));
+        }
         if (Array.isArray(apps)) {
           const mapped = apps
             .filter((item: any): item is Record<string, unknown> => !!item && typeof item === 'object')
@@ -102,7 +118,11 @@ export default function Profile() {
   const allPets = [...livePets, ...mockPets];
   // Convert favorite IDs to strings to ensure consistent matching whether UUID or mock number ID
   const stringFavorites = favorites.map(String);
-  const favoritePets = allPets.filter((pet) => stringFavorites.includes(String(pet.id)));
+  // Use fetched real data if available, otherwise fallback to matching ID
+  // Use fetched real data if available, otherwise fallback to matching ID
+  const favoritePets = favoritePetsData.length > 0
+    ? favoritePetsData.filter((pet: any) => pet !== null)
+    : allPets.filter((pet: any) => stringFavorites.includes(String(pet.id)));
 
   return (
     <div className="min-h-screen bg-warm-gradient">
@@ -111,12 +131,27 @@ export default function Profile() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
-                <User className="w-8 h-8 text-orange-500" />
+              <div
+                className="w-16 h-16 rounded-full overflow-hidden bg-orange-100 flex items-center justify-center relative group cursor-pointer"
+                onClick={() => setIsEditProfileOpen(true)}
+              >
+                {user?.avatar ? (
+                  <img src={user.avatar} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-8 h-8 text-orange-500" />
+                )}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Edit3 className="w-4 h-4 text-white" />
+                </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
-                <p className="text-gray-500">{user?.phone}</p>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold text-gray-800">{user?.name}</h1>
+                  <button onClick={() => setIsEditProfileOpen(true)} className="text-orange-500 hover:text-orange-600">
+                    <Edit3 className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-gray-500">{user?.phone} {user?.city ? `· ${user.city}` : ''}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -152,7 +187,11 @@ export default function Profile() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="favorites" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-8">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto mb-8">
+            <TabsTrigger value="my_pets" className="flex items-center gap-2">
+              <PawPrint className="w-4 h-4" />
+              我的宠物
+            </TabsTrigger>
             <TabsTrigger value="favorites" className="flex items-center gap-2">
               <Heart className="w-4 h-4" />
               我的收藏
@@ -167,11 +206,51 @@ export default function Profile() {
             </TabsTrigger>
           </TabsList>
 
+          {/* My Pets */}
+          <TabsContent value="my_pets">
+            {myPets.length > 0 ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myPets.map((pet: any) => (
+                  <Card key={pet.pet_id} className="overflow-hidden bg-white border-0 shadow-warm hover:shadow-warm-lg transition-all">
+                    <div className="aspect-[4/3] overflow-hidden relative">
+                      <img src={pet.image || '/images/cat-orange.jpg'} alt={pet.pet_name} className="w-full h-full object-cover" />
+                    </div>
+                    <CardContent className="p-4">
+                      <h3 className="text-xl font-bold text-gray-800 mb-1">{pet.pet_name}</h3>
+                      <p className="text-sm text-gray-500 mb-3">{pet.breed}</p>
+                      <div className="flex gap-2 mb-4">
+                        <Badge variant="outline" className="text-xs">{pet.age}</Badge>
+                        <Badge variant="outline" className="text-xs">{pet.gender === 'male' ? '公' : '母'}</Badge>
+                      </div>
+                      <Button
+                        className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-full"
+                        onClick={() => {
+                          setSharePetId(String(pet.pet_id));
+                          setIsStoryModalOpen(true);
+                        }}
+                      >
+                        <Heart className="w-4 h-4 mr-2" /> 分享领养故事
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                icon={PawPrint}
+                title="暂无已领养宠物"
+                description="去看看待领养的毛孩子们吧"
+                actionText="去浏览"
+                onAction={() => navigate('/pets')}
+              />
+            )}
+          </TabsContent>
+
           {/* Favorites */}
           <TabsContent value="favorites">
             {favoritePets.length > 0 ? (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {favoritePets.map((pet) => (
+                {favoritePets.map((pet: any) => (
                   <Card
                     key={pet.id}
                     className="overflow-hidden cursor-pointer hover:shadow-warm-lg transition-all"
@@ -184,16 +263,35 @@ export default function Profile() {
                         className="w-full h-full object-cover hover:scale-105 transition-transform"
                       />
                     </div>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 relative">
+                      {pet.status === 'adopted' && (
+                        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full shadow z-10">
+                          已领养
+                        </div>
+                      )}
                       <h3 className="font-bold text-gray-800">{pet.name}</h3>
                       <p className="text-sm text-gray-500">{pet.breed}</p>
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">
-                          {pet.age}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {pet.gender === 'male' ? '公' : '母'}
-                        </Badge>
+                      <div className="flex justify-between items-center mt-3">
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {pet.age}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {pet.gender === 'male' ? '公' : '母'}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 h-auto"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(String(pet.id));
+                            setFavoritePetsData((prev: any[]) => prev.filter((p: any) => String(p.id) !== String(pet.id)));
+                          }}
+                        >
+                          <Heart className="w-4 h-4 mr-1 fill-current" /> 取消
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -269,6 +367,20 @@ export default function Profile() {
                             {app.notes}
                           </div>
                         )}
+                        {app.status === 'approved' && (
+                          <div className="mt-4 flex justify-end">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setSharePetId(String(app.petId));
+                                setIsStoryModalOpen(true);
+                              }}
+                              className="text-orange-500 border-orange-200 hover:bg-orange-50 rounded-full"
+                            >
+                              <Heart className="w-4 h-4 mr-2" /> 去分享故事
+                            </Button>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   );
@@ -309,21 +421,46 @@ export default function Profile() {
                             </p>
                           </div>
                         </div>
-                        <Badge
-                          className={
-                            booking.status === 'confirmed'
-                              ? 'bg-green-100 text-green-600'
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge
+                            className={
+                              booking.status === 'confirmed'
+                                ? 'bg-green-100 text-green-600'
+                                : booking.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-600'
+                                  : booking.status === 'expired'
+                                    ? 'bg-gray-100 text-gray-500'
+                                    : 'bg-yellow-100 text-yellow-600'
+                            }
+                          >
+                            {booking.status === 'confirmed'
+                              ? '已确认'
                               : booking.status === 'cancelled'
-                                ? 'bg-red-100 text-red-600'
-                                : 'bg-yellow-100 text-yellow-600'
-                          }
-                        >
-                          {booking.status === 'confirmed'
-                            ? '已确认'
-                            : booking.status === 'cancelled'
-                              ? '已取消'
-                              : '待确认'}
-                        </Badge>
+                                ? '已取消'
+                                : booking.status === 'expired'
+                                  ? '已过期'
+                                  : '待确认'}
+                          </Badge>
+                          {(booking.status === 'confirmed' || booking.status === 'pending') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-500 border-red-200 hover:bg-red-50"
+                              onClick={() => {
+                                const bookingDate = new Date(`${booking.date}T${booking.time}`);
+                                const diffHours = (bookingDate.getTime() - Date.now()) / (1000 * 60 * 60);
+                                if (diffHours < 24) {
+                                  alert('预约时间不足24小时，无法取消');
+                                  return;
+                                }
+                                // @ts-ignore
+                                useUserStore.getState().cancelBooking(String(booking.id));
+                              }}
+                            >
+                              取消预约
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -341,6 +478,16 @@ export default function Profile() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <StoryModal
+        isOpen={isStoryModalOpen}
+        onClose={() => setIsStoryModalOpen(false)}
+        prefillPetId={sharePetId}
+      />
+      <ProfileEditModal
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+      />
     </div>
   );
 }

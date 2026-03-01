@@ -11,6 +11,9 @@ import AdoptionForm from './sections/AdoptionForm';
 import Footer from './sections/Footer';
 import ChatWidget from './components/chat/ChatWidget';
 import NearbyPets from './sections/NearbyPets';
+import CompareFloatBar from './components/compare/CompareFloatBar';
+import PetCompare from './components/compare/PetCompare';
+import SEO from '@/components/SEO';
 
 // Lazy loaded pages for better performance
 const PetDetail = lazy(() => import('./pages/PetDetail'));
@@ -75,6 +78,7 @@ function AnalyticsTracker() {
 function HomePage() {
   return (
     <>
+      <SEO />
       <section id="hero">
         <Hero />
       </section>
@@ -95,6 +99,8 @@ function MainLayout({ children }: { children: React.ReactNode }) {
       <main>{children}</main>
       <Footer />
       <ChatWidget />
+      <CompareFloatBar />
+      <PetCompare />
     </div>
   );
 }

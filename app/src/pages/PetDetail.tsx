@@ -18,6 +18,7 @@ import {
 import { fetchPetDetail, postPetView } from '@/services/api';
 import { mapBackendPetToFrontend } from '@/utils/petMapper';
 import PetLocationMap from '@/components/map/PetLocationMap';
+import SEO from '@/components/SEO';
 
 export default function PetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -126,6 +127,11 @@ export default function PetDetail() {
 
   return (
     <div className="min-h-screen bg-warm-gradient">
+      <SEO
+        title={`${finalPet.name} - 领养详情 | 宠物领养中心`}
+        description={`${finalPet.name}是一只${finalPet.age}的${finalPet.breed}。${finalPet.description}`}
+        image={finalPet.image}
+      />
       {/* Navigation */}
       <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

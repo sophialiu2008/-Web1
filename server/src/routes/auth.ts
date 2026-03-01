@@ -643,4 +643,38 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(500).send({ message: '登录失败，请稍后重试' })
     }
   })
+
+  // PUT /api/auth/profile —— 编辑个人信息
+  app.put('/api/auth/profile', async (req, reply) => {
+    if (!supabase) return reply.status(500).send({ code: 10002, msg: 'server error' })
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({ code: 10011, msg: 'unauthorized' })
+    }
+    const token = authHeader.split(' ')[1]
+    let decoded: any;
+    try {
+      decoded = jwt.verify(token, secrets.access)
+    } catch {
+      return reply.status(401).send({ code: 10011, msg: 'invalid token' })
+    }
+
+    const userId = decoded.sub
+    const b = req.body as any
+    const payload: any = {}
+    if (b.name !== undefined) payload.name = b.name;
+    if (b.avatar !== undefined) payload.avatar = b.avatar;
+    if (b.phone !== undefined) payload.phone = b.phone;
+    if (b.city !== undefined) payload.city = b.city;
+    if (b.bio !== undefined) payload.bio = b.bio;
+
+    payload.updated_at = new Date().toISOString()
+
+    const { error } = await supabase.from('users').update(payload).eq('id', userId)
+    if (error) {
+      console.error('[PROFILE UPDATE] Failed to update users table:', error)
+      return reply.status(400).send({ code: 10002, msg: '更新失败', error: error.message })
+    }
+    return reply.send({ code: 0, msg: 'success' })
+  })
 }

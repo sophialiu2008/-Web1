@@ -13,8 +13,15 @@ import { authRoutes } from './routes/auth.js'
 import { storiesRoutes } from './routes/stories.js'
 import { adminRoutes } from './routes/admin.js'
 import { chatRoutes } from './routes/chat.js'
+import { favoritesRoutes } from './routes/favorites.js'
+import { uploadRoutes } from './routes/upload.js'
+import { publicStatsRoutes } from './routes/stats.js'
+import { startCronJobs } from './utils/cron.js'
 
 const app = Fastify({ logger: true })
+
+startCronJobs()
+
 
 await app.register(cors, { origin: true, credentials: true })
 await app.register(formbody)
@@ -36,6 +43,9 @@ await authRoutes(app)
 await storiesRoutes(app)
 await adminRoutes(app)
 await chatRoutes(app)
+await favoritesRoutes(app)
+await uploadRoutes(app)
+await publicStatsRoutes(app)
 
 const port = Number(process.env.PORT || 8787)
 const host = process.env.HOST || '0.0.0.0'

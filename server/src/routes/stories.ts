@@ -23,21 +23,69 @@ export async function storiesRoutes(app: FastifyInstance) {
         if (!userId) return reply.status(400).send({ error: 'user_id required' })
 
         const { data, error } = await supabase
-            .from('applications')
-            .select('pet_id, pet_name, pet_type')
+            .from('adoptions')
+            .select(`
+                pet_id,
+                pets (
+                    name,
+                    type,
+                    image,
+                    breed,
+                    gender,
+                    age
+                )
+            `)
             .eq('user_id', userId)
-            .eq('status', 'approved')
 
         if (error) return reply.status(500).send({ error: error.message })
 
-        // De-duplicate by pet_id if needed
-        const uniqueAdoptions = Array.from(new Map(data.map(item => [item.pet_id, item])).values())
+        // Format to flat array for frontend
+        const uniqueAdoptions = Array.from(new Map(data.map((item: any) => [
+            item.pet_id,
+            {
+                pet_id: item.pet_id,
+                pet_name: item.pets?.name,
+                pet_type: item.pets?.type,
+                image: item.pets?.image,
+                breed: item.pets?.breed,
+                gender: item.pets?.gender,
+                age: item.pets?.age
+            }
+        ])).values())
         return reply.send(uniqueAdoptions)
     })
 
     // Post a new story
     app.post('/api/stories', async (req, reply) => {
         if (!supabase) return reply.status(500).send({ error: 'Supabase not configured' })
+
+        const isJson = req.headers['content-type']?.includes('application/json');
+        if (isJson) {
+            const payload = req.body as any;
+            if (!payload.user_id || !payload.title || !payload.content) {
+                return reply.status(400).send({ error: 'Missing required fields' })
+            }
+
+            const row = {
+                user_id: payload.user_id,
+                pet_id: payload.pet_id || null,
+                pet_name: payload.pet_name || '未知宠物',
+                pet_type: payload.pet_type || '其他',
+                adopter_name: payload.adopter_name || '爱心人士',
+                location: payload.location || '未知',
+                title: payload.title,
+                content: payload.content,
+                full_story: payload.content,
+                rating: Number(payload.rating || 5),
+                images: payload.images || [],
+                avatar: payload.images?.[0] || '/images/default-avatar.jpg',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }
+            const { data, error } = await supabase.from('stories').insert(row).select('id').single()
+            if (error) return reply.status(500).send({ error: error.message })
+            return reply.send({ id: data.id })
+        }
 
         // Ensure storage bucket exists and is public (same bucket as pet images)
         async function ensureBucket() {

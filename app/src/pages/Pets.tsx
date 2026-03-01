@@ -12,12 +12,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Heart, MapPin, Search, X, Dog, Cat, Filter,
-  Sparkles, BarChart2, Map, LayoutGrid
+  Sparkles, BarChart2, Map, LayoutGrid, ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PetQuiz from '@/components/quiz/PetQuiz';
-import PetCompare from '@/components/compare/PetCompare';
 import MapContainer from '@/components/map/MapContainer';
+import SEO from '@/components/SEO';
 
 const CATEGORIES = [
   { id: 'all', name: '全部', icon: Filter },
@@ -28,7 +29,7 @@ const CATEGORIES = [
 export default function Pets() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { favorites, toggleFavorite, compareList } = useUserStore();
+  const { favorites, toggleFavorite, compareList, setCompareOpen } = useUserStore();
   const { trackSearch } = useAnalyticsStore();
   const { pets: livePets, fetchPets, isLoading } = usePetStore();
 
@@ -36,12 +37,26 @@ export default function Pets() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-  const [showCompare, setShowCompare] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
 
+  const [filters, setFilters] = useState({ gender: '', age: '', breed: '', city: '', sort: 'newest' });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
   useEffect(() => {
-    fetchPets();
-  }, [fetchPets]);
+    const params: any = {};
+    if (activeFilter !== 'all') params.category = activeFilter;
+    if (searchQuery.trim()) params.q = searchQuery;
+    if (filters.gender) params.gender = filters.gender;
+    if (filters.age) params.age = filters.age;
+    if (filters.city) params.city = filters.city;
+    if (filters.breed) params.breed = filters.breed;
+    if (filters.sort) params.sort = filters.sort;
+
+    const timer = setTimeout(() => {
+      fetchPets({ ...params, force: true });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [fetchPets, activeFilter, searchQuery, filters]);
 
   useEffect(() => {
     const filterFromUrl = searchParams.get('category');
@@ -55,7 +70,7 @@ export default function Pets() {
   }, [livePets]);
 
   const filteredPets = useMemo(() => {
-    let result = allPets;
+    let result = allPets.filter(p => p.status !== 'adopted');
 
     if (activeFilter !== 'all') {
       result = result.filter(pet => pet.type === activeFilter);
@@ -75,8 +90,34 @@ export default function Pets() {
       result = result.filter(pet => favorites.includes(String(pet.id)));
     }
 
+    if (filters.gender) {
+      result = result.filter(pet => pet.gender === filters.gender);
+    }
+    if (filters.breed) {
+      result = result.filter(pet => pet.breed.toLowerCase().includes(filters.breed.toLowerCase()));
+    }
+    if (filters.city) {
+      result = result.filter(pet => pet.location?.includes(filters.city) || (pet as any).city?.includes(filters.city));
+    }
+    if (filters.age) {
+      result = result.filter(p => {
+        const ageYears = (p as any).age_years !== undefined ? (p as any).age_years : parseInt(p.age || '1');
+        if (filters.age === 'baby') return ageYears <= 1;
+        if (filters.age === 'young') return ageYears > 1 && ageYears <= 3;
+        if (filters.age === 'adult') return ageYears > 3 && ageYears <= 8;
+        if (filters.age === 'senior') return ageYears > 8;
+        return true;
+      });
+    }
+
+    if (filters.sort === 'oldest') {
+      result = result.sort((a, b) => new Date(a.arrivalDate || '2000').getTime() - new Date(b.arrivalDate || '2000').getTime());
+    } else {
+      result = result.sort((a, b) => new Date(b.arrivalDate || '2000').getTime() - new Date(a.arrivalDate || '2000').getTime());
+    }
+
     return result;
-  }, [allPets, activeFilter, searchQuery, showFavoritesOnly, favorites]);
+  }, [allPets, activeFilter, searchQuery, showFavoritesOnly, favorites, filters]);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -87,6 +128,10 @@ export default function Pets() {
 
   return (
     <div className="min-h-screen bg-warm-gradient">
+      <SEO
+        title="宠物图鉴 - 发现待领养的可爱动物"
+        description="浏览成百上千只等待领养的狗狗和猫咪，根据品种、年龄、城市等多维度寻找最适合你的小宠物。"
+      />
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -108,7 +153,7 @@ export default function Pets() {
               </Button>
               {compareList.length > 0 && (
                 <Button
-                  onClick={() => setShowCompare(true)}
+                  onClick={() => setCompareOpen(true)}
                   className="rounded-full bg-orange-500 hover:bg-orange-600 text-white"
                 >
                   <BarChart2 className="w-4 h-4 mr-2" />
@@ -140,6 +185,21 @@ export default function Pets() {
               </button>
             )}
           </div>
+
+          <Button
+            variant="outline"
+            className={`rounded-full px-6 transition-colors ${showAdvancedFilters ? 'bg-orange-50 text-orange-600 border-orange-200' : 'text-gray-600'}`}
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            高级筛选
+            {Object.values(filters).filter(v => v && v !== 'newest').length > 0 && (
+              <span className="ml-2 px-2 py-0.5 bg-orange-500 text-white text-xs rounded-full">
+                {Object.values(filters).filter(v => v && v !== 'newest').length}
+              </span>
+            )}
+            <ChevronDown className={`w-4 h-4 ml-2 transition-transform duration-300 ${showAdvancedFilters ? 'rotate-180' : ''}`} />
+          </Button>
 
           <div className="flex justify-center gap-2 flex-wrap">
             {CATEGORIES.map((filter) => {
@@ -186,17 +246,74 @@ export default function Pets() {
           </div>
         </div>
 
+        <AnimatePresence>
+          {showAdvancedFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-8"
+            >
+              <Card className="bg-white/50 backdrop-blur-sm border-0 shadow-sm rounded-2xl">
+                <CardContent className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                  <Select value={filters.gender} onValueChange={(v) => setFilters({ ...filters, gender: v === 'all' ? '' : v })}>
+                    <SelectTrigger className="rounded-full bg-white"><SelectValue placeholder="性别" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">不限性别</SelectItem>
+                      <SelectItem value="male">公</SelectItem>
+                      <SelectItem value="female">母</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filters.age} onValueChange={(v) => setFilters({ ...filters, age: v === 'all' ? '' : v })}>
+                    <SelectTrigger className="rounded-full bg-white"><SelectValue placeholder="年龄段" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">不限年龄</SelectItem>
+                      <SelectItem value="baby">幼年 (1岁及以下)</SelectItem>
+                      <SelectItem value="young">青年 (1-3岁)</SelectItem>
+                      <SelectItem value="adult">成年 (3-8岁)</SelectItem>
+                      <SelectItem value="senior">老年 (8岁以上)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Input
+                    placeholder="品种 (例如: 金毛)"
+                    value={filters.breed}
+                    onChange={(e) => setFilters({ ...filters, breed: e.target.value })}
+                    className="rounded-full bg-white"
+                  />
+                  <Input
+                    placeholder="城市 (例如: 北京)"
+                    value={filters.city}
+                    onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                    className="rounded-full bg-white"
+                  />
+
+                  <Select value={filters.sort} onValueChange={(v) => setFilters({ ...filters, sort: v })}>
+                    <SelectTrigger className="rounded-full bg-white border-orange-200 text-orange-600"><SelectValue placeholder="排序" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">最新发布优先</SelectItem>
+                      <SelectItem value="oldest">最早发布优先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-600">
             找到 <span className="font-bold text-orange-500">{filteredPets.length}</span> 只宠物
           </p>
           <div className="flex items-center gap-2">
-            {(searchQuery || showFavoritesOnly || activeFilter !== 'all') && (
+            {(searchQuery || showFavoritesOnly || activeFilter !== 'all' || Object.values(filters).some(v => v && v !== 'newest')) && (
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setShowFavoritesOnly(false);
                   setActiveFilter('all');
+                  setFilters({ gender: '', age: '', breed: '', city: '', sort: 'newest' });
                 }}
                 className="text-sm text-orange-500 hover:text-orange-600 flex items-center gap-1"
               >
@@ -390,7 +507,6 @@ export default function Pets() {
       </main>
 
       <PetQuiz isOpen={showQuiz} onClose={() => setShowQuiz(false)} />
-      <PetCompare isOpen={showCompare} onClose={() => setShowCompare(false)} />
     </div >
   );
 }

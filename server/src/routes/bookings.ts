@@ -27,4 +27,23 @@ export async function bookingsRoutes(app: FastifyInstance) {
     if (error) return reply.status(400).send({ error: error.message })
     return reply.send(data)
   })
+
+  app.put('/api/bookings/:id/cancel', async (req, reply) => {
+    if (!supabase) return reply.status(500).send({ error: 'Supabase not configured' })
+    const { id } = req.params as { id: string }
+
+    // The requirement says only cancel > 24 hours. The frontend checks it, let's also enforce it here if we want.
+    const { data: booking } = await supabase.from('bookings').select('date, time').eq('id', id).single()
+    if (booking) {
+      const bookingDate = new Date(`${booking.date}T${booking.time}`);
+      const diffHours = (bookingDate.getTime() - Date.now()) / (1000 * 60 * 60);
+      if (diffHours < 24) {
+        return reply.status(400).send({ error: '预约时间不足24小时，无法取消' })
+      }
+    }
+
+    const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
+    if (error) return reply.status(500).send({ error: error.message })
+    return { success: true }
+  })
 }

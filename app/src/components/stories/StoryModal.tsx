@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Star, Upload, X } from 'lucide-react';
 import { useStoryStore } from '@/store/storyStore';
+import { useUserStore } from '@/store/userStore';
 import { toast } from 'sonner';
 
 const schema = z.object({
@@ -24,9 +25,10 @@ type FormValues = z.infer<typeof schema>;
 interface StoryModalProps {
     isOpen: boolean;
     onClose: () => void;
+    prefillPetId?: string | null;
 }
 
-export default function StoryModal({ isOpen, onClose }: StoryModalProps) {
+export default function StoryModal({ isOpen, onClose, prefillPetId }: StoryModalProps) {
     const [adoptions, setAdoptions] = useState<any[]>([]);
     const [images, setImages] = useState<File[]>([]);
     const [previews, setPreviews] = useState<string[]>([]);
@@ -50,9 +52,14 @@ export default function StoryModal({ isOpen, onClose }: StoryModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            fetchMyAdoptions().then(setAdoptions);
+            fetchMyAdoptions().then((res) => {
+                setAdoptions(res);
+                if (prefillPetId && res.some((p: any) => String(p.pet_id) === String(prefillPetId))) {
+                    setValue('pet_id', String(prefillPetId));
+                }
+            });
         }
-    }, [isOpen, fetchMyAdoptions]);
+    }, [isOpen, fetchMyAdoptions, prefillPetId, setValue]);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -75,37 +82,54 @@ export default function StoryModal({ isOpen, onClose }: StoryModalProps) {
     };
 
     const onSubmit = async (data: FormValues) => {
-        const formData = new FormData();
-        formData.append('pet_id', data.pet_id);
-        formData.append('title', data.title);
-        formData.append('content', data.content);
-        formData.append('rating', data.rating.toString());
+        let uploadedUrls: string[] = [];
 
-        const selectedPet = adoptions.find(a => a.pet_id === data.pet_id);
-        if (selectedPet) {
-            formData.append('pet_name', selectedPet.pet_name);
-            formData.append('pet_type', selectedPet.pet_type);
-        }
+        try {
+            if (images.length > 0) {
+                const uploadForm = new FormData();
+                images.forEach((file) => uploadForm.append('file', file));
 
-        images.forEach(image => {
-            formData.append('images', image);
-        });
+                const token = useUserStore.getState().accessToken;
+                const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8789';
+                const uploadRes = await fetch(`${API_BASE}/api/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: uploadForm
+                });
+                const uploadData = await uploadRes.json();
+                if (!uploadRes.ok) throw new Error(uploadData.error || '上传图片失败');
+                uploadedUrls = uploadData.urls;
+            }
 
-        const result = await createStory(formData);
-        if (result.success) {
-            toast.success('分享成功！感谢您的故事');
-            reset();
-            setImages([]);
-            setPreviews([]);
-            onClose();
-        } else {
-            toast.error(result.error || '发布失败');
+            const selectedPet = adoptions.find(a => String(a.pet_id) === String(data.pet_id));
+            const payload = {
+                pet_id: data.pet_id,
+                pet_name: selectedPet?.pet_name,
+                pet_type: selectedPet?.pet_type,
+                title: data.title,
+                content: data.content,
+                rating: data.rating,
+                images: uploadedUrls
+            };
+
+            const result = await createStory(payload);
+            if (result.success) {
+                toast.success('分享成功！感谢您的故事');
+                reset();
+                setImages([]);
+                setPreviews([]);
+                onClose();
+            } else {
+                toast.error(result.error || '发布失败');
+            }
+        } catch (error: any) {
+            toast.error(error.message || '分享故事失败');
         }
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto w-[95%] sm:w-full">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-center text-gray-800">分享我的故事</DialogTitle>
                 </DialogHeader>

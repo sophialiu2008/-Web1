@@ -14,6 +14,7 @@ export interface Pet {
   vaccinated: boolean;
   neutered: boolean;
   healthRecords: HealthRecord[];
+  status?: string;
   personality: string[];
   suitableFor: string[];
   videoUrl?: string;

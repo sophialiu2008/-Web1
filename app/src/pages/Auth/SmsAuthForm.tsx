@@ -14,21 +14,6 @@ import {
     API_BASE
 } from '@/services/api';
 
-const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('请求超时')), ms);
-    });
-    try {
-        return await Promise.race([promise, timeout]);
-    } finally {
-        if (timer) clearTimeout(timer);
-    }
-};
-
-const getErrorMessage = (error: unknown) => {
-    return error instanceof Error ? error.message : '';
-};
 
 export function SmsAuthForm() {
     const navigate = useNavigate();

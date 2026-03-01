@@ -9,6 +9,7 @@ import { useUserStore } from '@/store/userStore';
 import { useNavigate } from 'react-router-dom';
 import StoryModal from '@/components/stories/StoryModal';
 import { toast } from 'sonner';
+import { useStatsStore } from '@/store/statsStore';
 
 interface Story {
   id: string | number;
@@ -47,6 +48,7 @@ export default function SuccessStories() {
   const navigate = useNavigate();
   const { isLoggedIn } = useUserStore();
   const { stories: dynamicStories, fetchStories, isLoading, totalCount } = useStoryStore();
+  const { successfulAdoptions, satisfactionRate, totalStories, fetchStats } = useStatsStore();
   const [selectedStory, setSelectedStory] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(false);
@@ -57,7 +59,8 @@ export default function SuccessStories() {
 
   useEffect(() => {
     fetchStories();
-  }, [fetchStories]);
+    fetchStats();
+  }, [fetchStories, fetchStats]);
 
   // 自动轮播
   useEffect(() => {
@@ -313,9 +316,9 @@ export default function SuccessStories() {
         {/* Stats */}
         <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { value: '1,280+', label: '成功领养' },
-            { value: '98%', label: '满意度' },
-            { value: `${totalCount > 100 ? totalCount : '500'}+`, label: '温暖故事' },
+            { value: successfulAdoptions > 0 ? `${successfulAdoptions.toLocaleString()}+` : '1,280+', label: '成功领养' },
+            { value: `${satisfactionRate}%`, label: '满意度' },
+            { value: totalStories > 0 ? `${totalStories.toLocaleString()}+` : `${totalCount > 100 ? totalCount : '500'}+`, label: '温暖故事' },
             { value: '24h', label: '平均审核时间' },
           ].map((stat, index) => (
             <div key={index} className="text-center p-6 bg-white rounded-2xl shadow-warm">

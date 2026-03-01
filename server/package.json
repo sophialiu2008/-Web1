@@ -20,6 +20,7 @@
     "@fastify/formbody": "^7.4.0",
     "@fastify/multipart": "^8.2.1",
     "@supabase/supabase-js": "^2.45.4",
+    "ali-oss": "^6.23.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
@@ -31,6 +32,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/ali-oss": "^6.23.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/nodemailer": "^7.0.10",
     "typescript": "^5.9.3"

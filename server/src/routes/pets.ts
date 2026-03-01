@@ -138,15 +138,32 @@ export async function petsRoutes(app: FastifyInstance) {
       const pageSize = Math.min(50, Math.max(1, Number((req.query as any)?.pageSize || 12)))
       const from = (page - 1) * pageSize
       const to = from + pageSize - 1
+      const sort = (req.query as any)?.sort as string | undefined
+      const breed = (req.query as any)?.breed as string | undefined
+      const ageStatus = (req.query as any)?.age as string | undefined
+
       const userId = (req.query as any)?.user_id as string | undefined
       const authUserId = getAuthUserId(req)
       const onlyMine = userId && authUserId && userId === authUserId
-      let query = supabase.from('pets').select('*', { count: 'exact' }).order('created_at', { ascending: false })
+
+      let query = supabase.from('pets').select('*', { count: 'exact' })
+      if (sort === 'oldest') {
+        query = query.order('created_at', { ascending: true })
+      } else {
+        query = query.order('created_at', { ascending: false })
+      }
       if (!onlyMine && (!cols || cols.has('status'))) query = query.eq('status', 'available')
       if (onlyMine) query = query.eq('user_id', userId)
       if (category && (!cols || cols.has('category'))) query = query.eq('category', category)
       if (city && (!cols || cols.has('city'))) query = query.eq('city', city)
       if (gender && (!cols || cols.has('gender'))) query = query.eq('gender', gender)
+      if (breed && (!cols || cols.has('breed'))) query = query.eq('breed', breed)
+      if (ageStatus && (!cols || cols.has('age_years'))) {
+        if (ageStatus === 'baby') query = query.lte('age_years', 1)
+        else if (ageStatus === 'young') query = query.gt('age_years', 1).lte('age_years', 3)
+        else if (ageStatus === 'adult') query = query.gt('age_years', 3).lte('age_years', 8)
+        else if (ageStatus === 'senior') query = query.gt('age_years', 8)
+      }
       if (isVaccinated !== undefined && (!cols || cols.has('is_vaccinated'))) query = query.eq('is_vaccinated', isVaccinated)
       if (isNeutered !== undefined && (!cols || cols.has('is_neutered'))) query = query.eq('is_neutered', isNeutered)
       if (q) {
@@ -180,6 +197,41 @@ export async function petsRoutes(app: FastifyInstance) {
     const cols = await getPetsColumns()
     const userId = getAuthUserId(req)
     if (!userId) return reply.status(401).send({ error: 'unauthorized' })
+
+    const isJson = req.headers['content-type']?.includes('application/json');
+    if (isJson) {
+      const b = req.body as any;
+      const uploadedUrls = b.gallery || (b.image ? [b.image] : []);
+      if (uploadedUrls.length === 0) return reply.status(400).send({ error: 'images required' });
+
+      const row: Record<string, any> = {
+        user_id: userId,
+        name: b.name,
+        category: b.category,
+        breed: b.breed,
+        age_years: b.age_years,
+        gender: b.gender,
+        province: b.province,
+        city: b.city,
+        district: b.district,
+        description: b.description,
+        is_vaccinated: b.is_vaccinated,
+        is_neutered: b.is_neutered,
+        image: uploadedUrls[0],
+        gallery: uploadedUrls,
+        status: 'available',
+      }
+      if (b.latitude !== undefined) row.latitude = b.latitude;
+      if (b.longitude !== undefined) row.longitude = b.longitude;
+      if (b.personality_tags && (!cols || cols.has('personality_tags'))) row.personality_tags = b.personality_tags;
+      if (b.personality_traits && (!cols || cols.has('personality_traits'))) row.personality_traits = b.personality_traits;
+      if (b.suitable_for && (!cols || cols.has('suitable_for'))) row.suitable_for = b.suitable_for;
+
+      const { data, error } = await supabase.from('pets').insert(row).select('id').single();
+      if (error) return reply.status(500).send({ error: error.message });
+      return reply.send({ id: data.id });
+    }
+
     if (!req.isMultipart()) return reply.status(400).send({ error: 'multipart/form-data required' })
     const fields: Record<string, unknown> = {}
     const imageFiles: Array<{ filename: string; mimetype: string; buffer: Buffer }> = []

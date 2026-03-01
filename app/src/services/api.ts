@@ -41,6 +41,12 @@ export async function fetchProfile() {
   return r.json()
 }
 
+export async function fetchPublicStats() {
+  const r = await fetch(`${API_BASE}/api/public/stats`)
+  if (!r.ok) throw new Error('Failed to fetch public stats')
+  return r.json()
+}
+
 export async function postPetView(petId: number) {
   try {
     const r = await fetch(`${API_BASE}/api/analytics/pet-view`, {
@@ -103,6 +109,17 @@ export async function submitBooking(payload: Record<string, unknown>) {
     body: JSON.stringify(payload)
   })
   if (!r.ok) throw new Error('request failed')
+  return r.json()
+}
+
+export async function cancelUserBooking(id: string) {
+  const r = await fetch(`${API_BASE}/api/bookings/${id}/cancel`, {
+    method: 'PUT'
+  })
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to cancel booking')
+  }
   return r.json()
 }
 
@@ -184,62 +201,23 @@ export async function resetPasswordWithToken(payload: { token: string; new_passw
   return r.json()
 }
 
-export async function createPet(payload: FormData, onProgress?: (percent: number) => void) {
-  const { useUserStore } = await import('@/store/userStore')
-  const state = useUserStore.getState()
-  let accessToken = state.accessToken || null
-  let accessExpiresAt = state.accessExpiresAt || null
-  if (!accessToken && typeof localStorage !== 'undefined') {
-    try {
-      const raw = localStorage.getItem('user-storage')
-      if (raw) {
-        const parsed = JSON.parse(raw) as { state?: { accessToken?: string | null; accessExpiresAt?: number | null } }
-        accessToken = parsed.state?.accessToken || accessToken
-        accessExpiresAt = parsed.state?.accessExpiresAt || accessExpiresAt
-      }
-    } catch (e) {
-      void e
-    }
-  }
-  const expired = accessExpiresAt ? Date.now() >= accessExpiresAt : false
-  const baseToken = accessToken && !expired ? accessToken : await refreshTokensIfNeeded()
-  const uploadOnce = (token?: string | null) =>
-    new Promise<Record<string, unknown>>((resolve, reject) => {
-      const xhr = new XMLHttpRequest()
-      xhr.open('POST', `${API_BASE}/api/pets`)
-      xhr.timeout = 45000
-      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
-      xhr.withCredentials = true
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && onProgress) {
-          onProgress(Math.round((e.loaded / e.total) * 100))
-        }
-      }
-      xhr.ontimeout = () => reject({ status: 408 })
-      xhr.onload = () => {
-        try {
-          const json = JSON.parse(xhr.responseText || '{}')
-          if (xhr.status >= 200 && xhr.status < 300) return resolve(json)
-          return reject({ status: xhr.status, json })
-        } catch {
-          return reject({ status: xhr.status })
-        }
-      }
-      xhr.onerror = () => reject({ status: xhr.status })
-      xhr.send(payload)
-    })
-  try {
-    if (!baseToken) return uploadOnce(baseToken)
-    return await uploadOnce(baseToken)
-  } catch (e) {
-    const err = e as { status?: number; json?: { error?: string } }
-    if (err?.status === 401) {
-      const newToken = await refreshTokensIfNeeded()
-      if (newToken) return uploadOnce(newToken)
-      return Promise.reject({ status: 401, json: { error: 'unauthorized' } })
-    }
-    return Promise.reject(e)
-  }
+export async function createPet(payload: any, onProgress?: (percent: number) => void) {
+  if (onProgress) onProgress(10);
+  const isFormData = payload instanceof FormData;
+
+  const headers: HeadersInit = isFormData ? {} : { 'Content-Type': 'application/json' };
+  const body = isFormData ? payload : JSON.stringify(payload);
+
+  const res = await authFetch(`${API_BASE}/api/pets`, {
+    method: 'POST',
+    headers,
+    body
+  });
+
+  if (onProgress) onProgress(100);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '发布失败');
+  return data;
 }
 
 export async function fetchPets(params: {
@@ -426,3 +404,51 @@ export async function fetchNearbyPets(params: { lat: number; lng: number; radius
   if (!r.ok) throw new Error('Failed to fetch nearby pets')
   return r.json()
 }
+
+export async function fetchFavorites(userId: string) {
+  const r = await fetch(`${API_BASE}/api/favorites?userId=${encodeURIComponent(userId)}`)
+  if (!r.ok) return []
+  return r.json()
+}
+
+export async function addFavorite(petId: string, userId: string) {
+  const r = await fetch(`${API_BASE}/api/favorites/${encodeURIComponent(petId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId })
+  })
+  if (!r.ok) throw new Error('Failed to add favorite')
+  return r.json()
+}
+
+export async function removeFavorite(petId: string, userId: string) {
+  const r = await fetch(`${API_BASE}/api/favorites/${encodeURIComponent(petId)}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId })
+  })
+  if (!r.ok) throw new Error('Failed to remove favorite')
+  return r.json()
+}
+
+export async function fetchMyAdoptions(userId: string) {
+  const r = await fetch(`${API_BASE}/api/my-adoptions?user_id=${encodeURIComponent(userId)}`)
+  if (!r.ok) throw new Error('request failed')
+  return r.json()
+}
+
+export const updateProfile = async (data: { name?: string, phone?: string, city?: string, bio?: string, avatar?: string }) => {
+  const { useUserStore } = await import('@/store/userStore');
+  const token = useUserStore.getState().accessToken;
+  const res = await fetch(`${API_BASE}/api/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
+  });
+  const resData = await res.json();
+  if (!res.ok || resData.code !== 0) throw new Error(resData.msg || 'Update failed');
+  return resData;
+};

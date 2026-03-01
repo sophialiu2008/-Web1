@@ -4,10 +4,11 @@ import { getBlogPostById, getRelatedPosts } from '@/data/blog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  ArrowLeft, Clock, Eye, Calendar, Share2, 
+import {
+  ArrowLeft, Clock, Eye, Calendar, Share2,
   ChevronRight
 } from 'lucide-react';
+import SEO from '@/components/SEO';
 
 export default function BlogDetail() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +58,7 @@ export default function BlogDetail() {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      
+
       if (line.startsWith('## ')) {
         elements.push(
           <h2 key={key++} className="text-2xl font-bold text-gray-800 mt-8 mb-4">
@@ -105,6 +106,12 @@ export default function BlogDetail() {
 
   return (
     <div className="min-h-screen bg-warm-gradient">
+      <SEO
+        title={`${post.title} - 宠物知识 | 宠物领养中心`}
+        description={post.excerpt}
+        image={post.coverImage}
+        type="article"
+      />
       {/* Navigation */}
       <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -136,7 +143,7 @@ export default function BlogDetail() {
             {post.title}
           </h1>
           <p className="text-xl text-gray-600 mb-6">{post.excerpt}</p>
-          
+
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-2">
               <img

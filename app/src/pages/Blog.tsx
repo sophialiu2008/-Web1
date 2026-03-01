@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageFallback } from '@/components/ui/image-fallback';
 import { Search, Clock, Eye, ArrowRight, Calendar } from 'lucide-react';
+import SEO from '@/components/SEO';
 
 const categories = ['全部', '养猫指南', '狗狗训练', '领养指南', '宠物健康'];
 
@@ -29,6 +30,10 @@ export default function Blog() {
 
   return (
     <div className="min-h-screen bg-warm-gradient">
+      <SEO
+        title="宠物知识与领养指南 | 宠物领养中心"
+        description="专业的养宠指南、训练技巧和领养知识，帮助你成为更好的宠物主人。"
+      />
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

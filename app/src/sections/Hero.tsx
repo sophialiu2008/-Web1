@@ -1,17 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Heart, PawPrint, ChevronDown } from 'lucide-react';
-import { useAnalyticsStore } from '@/store/analyticsStore';
-import { usePetStore } from '@/store/petStore';
+import { useStatsStore } from '@/store/statsStore';
+import { useEffect } from 'react';
 
 export default function Hero() {
-  const { pageViews, petViews } = useAnalyticsStore();
-  const { pets } = usePetStore();
+  const { successfulAdoptions, totalPets, satisfactionRate, fetchStats } = useStatsStore();
 
-  const totalViews = Object.values(pageViews).reduce((a, b) => a + b, 0);
-  const totalPetViews = Object.values(petViews).reduce((a, b) => a + b, 0);
-  // Pseudo logic for "successful adoptions" and "satisfaction" based on interactions
-  const successAdoptions = 1200 + Math.floor(totalPetViews / 10);
-  const satisfaction = Math.min(99, 95 + Math.floor(totalViews / 100));
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const scrollToPets = () => {
     document.getElementById('pets')?.scrollIntoView({ behavior: 'smooth' });
@@ -38,7 +35,7 @@ export default function Hero() {
         </div>
 
         {/* Title */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+        <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight mt-12 sm:mt-0">
           用爱点亮
           <span className="block text-orange-300">每一个生命</span>
         </h1>
@@ -51,23 +48,23 @@ export default function Hero() {
         </p>
 
         {/* Stats */}
-        <div className="flex flex-wrap justify-center gap-6 sm:gap-10 mb-10">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap justify-center gap-6 sm:gap-10 mb-10">
           <div className="text-center">
             <div className="text-3xl sm:text-4xl font-bold text-white mb-1">
-              {successAdoptions.toLocaleString()}+
+              {successfulAdoptions > 0 ? `${successfulAdoptions.toLocaleString()}+` : '0'}
             </div>
             <div className="text-sm text-white/70">成功领养</div>
           </div>
           <div className="w-px h-12 bg-white/30 hidden sm:block" />
           <div className="text-center">
             <div className="text-3xl sm:text-4xl font-bold text-white mb-1">
-              {pets.length > 0 ? pets.length : 86}
+              {totalPets > 0 ? totalPets : '0'}
             </div>
             <div className="text-sm text-white/70">待领养宠物</div>
           </div>
           <div className="w-px h-12 bg-white/30 hidden sm:block" />
           <div className="text-center">
-            <div className="text-3xl sm:text-4xl font-bold text-white mb-1">{satisfaction}%</div>
+            <div className="text-3xl sm:text-4xl font-bold text-white mb-1">{satisfactionRate}%</div>
             <div className="text-sm text-white/70">满意度</div>
           </div>
         </div>

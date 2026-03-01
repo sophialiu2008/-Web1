@@ -10,6 +10,8 @@ export interface User {
   avatar?: string;
   role?: string;
   status?: string;
+  city?: string;
+  bio?: string;
 }
 
 export interface AdoptionApplication {
@@ -28,7 +30,7 @@ export interface Booking {
   petName: string;
   date: string;
   time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'expired';
 }
 
 interface UserState {
@@ -41,6 +43,7 @@ interface UserState {
   applications: AdoptionApplication[];
   bookings: Booking[];
   compareList: (number | string)[];
+  isCompareOpen: boolean;
 
   // Actions
   login: (user: User, tokens?: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
@@ -56,9 +59,12 @@ interface UserState {
   addToCompare: (petId: string) => void;
   removeFromCompare: (petId: string) => void;
   clearCompare: () => void;
+  setCompareOpen: (isOpen: boolean) => void;
+  updateUser: (data: Partial<User>) => void;
   clearAuth: () => void;
   isAdmin: () => boolean;
   setUser: (user: User) => void;
+  setFavorites: (favs: string[]) => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -73,6 +79,7 @@ export const useUserStore = create<UserState>()(
       applications: [],
       bookings: [],
       compareList: [],
+      isCompareOpen: false,
 
       login: (user, tokens) => set({
         user,
@@ -92,14 +99,32 @@ export const useUserStore = create<UserState>()(
 
       setTokens: (t) => set({ accessToken: t.accessToken, refreshToken: t.refreshToken, accessExpiresAt: Date.now() + t.expiresIn * 1000 }),
 
-      toggleFavorite: (petId: string) => {
-        const { favorites } = get();
-        // ensure string comparison
+      setFavorites: (favs) => set({ favorites: favs }),
+
+      toggleFavorite: async (petId: string) => {
+        const { favorites, user } = get();
         const strId = String(petId);
-        const newFavorites = favorites.map(String).includes(strId)
+        const isFav = favorites.map(String).includes(strId);
+
+        const newFavorites = isFav
           ? favorites.filter((id: string | number) => String(id) !== strId)
           : [...favorites, strId];
         set({ favorites: newFavorites });
+
+        if (user?.id) {
+          try {
+            const { addFavorite, removeFavorite } = await import('@/services/api');
+            if (isFav) {
+              await removeFavorite(strId, user.id);
+            } else {
+              await addFavorite(strId, user.id);
+            }
+          } catch (error) {
+            console.error('Failed to sync favorite', error);
+            set({ favorites });
+            toast.error('同步收藏状态失败');
+          }
+        }
       },
 
       addApplication: (application: AdoptionApplication) => {
@@ -122,12 +147,20 @@ export const useUserStore = create<UserState>()(
         }));
       },
 
-      cancelBooking: (id: string) => {
-        set((state: UserState) => ({
-          bookings: state.bookings.map((booking: Booking) =>
-            booking.id === id ? { ...booking, status: 'cancelled' as const } : booking
-          )
-        }));
+      cancelBooking: async (id: string) => {
+        try {
+          const { cancelUserBooking } = await import('@/services/api');
+          await cancelUserBooking(id);
+
+          set((state: UserState) => ({
+            bookings: state.bookings.map((booking: Booking) =>
+              String(booking.id) === String(id) ? { ...booking, status: 'cancelled' as const } : booking
+            )
+          }));
+          toast.success('已成功取消预约');
+        } catch (error: any) {
+          toast.error(error.message || '取消预约失败');
+        }
       },
 
       setApplications: (apps: AdoptionApplication[]) => set({ applications: apps }),
@@ -153,6 +186,13 @@ export const useUserStore = create<UserState>()(
       },
 
       clearCompare: () => set({ compareList: [] }),
+      setCompareOpen: (isOpen: boolean) => set({ isCompareOpen: isOpen }),
+
+      updateUser: (data: Partial<User>) => {
+        set((state: UserState) => ({
+          user: state.user ? { ...state.user, ...data } : null
+        }));
+      },
     }),
     {
       name: 'user-storage',

@@ -35,3 +35,24 @@ export const sendSmsCode = async (phone: string, code: string) => {
 
     return response.body
 }
+
+export const sendNotificationSms = async (phone: string, templateCode: string, templateParam: object = {}) => {
+    const client = createSmsClient()
+    const phoneNumber = phone.replace(/^\+86/, '')
+
+    const request = new $Dysmsapi.SendSmsRequest({
+        phoneNumbers: phoneNumber,
+        signName: process.env.SMS_SIGN_NAME,
+        templateCode: templateCode,
+        templateParam: JSON.stringify(templateParam)
+    })
+
+    const response = await client.sendSms(request)
+    console.log(`通知短信发送结果 (模板 ${templateCode}):`, JSON.stringify(response.body))
+
+    if (response.body.code !== 'OK') {
+        throw new Error(`通知短信发送失败: ${response.body.message}`)
+    }
+
+    return response.body
+}

@@ -1,18 +1,14 @@
 import { useUserStore } from '@/store/userStore';
-import { pets } from '@/data/pets';
+import { usePetStore } from '@/store/petStore';
 import { Button } from '@/components/ui/button';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface PetCompareProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+export default function PetCompare() {
+  const { compareList, removeFromCompare, clearCompare, isCompareOpen, setCompareOpen } = useUserStore();
+  const { pets } = usePetStore();
 
-export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
-  const { compareList, removeFromCompare, clearCompare } = useUserStore();
-
-  const comparePets = pets.filter(pet => compareList.includes(String(pet.id)));
+  const comparePets = compareList.map(id => pets.find(p => String(p.id) === String(id))).filter(Boolean) as typeof pets;
 
   const attributes = [
     { key: 'breed', label: '品种' },
@@ -25,14 +21,14 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
 
   return (
     <AnimatePresence>
-      {isOpen && comparePets.length > 0 && (
+      {isCompareOpen && comparePets.length > 0 && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end pointer-events-none">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={() => setCompareOpen(false)}
             className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto"
           />
 
@@ -65,7 +61,7 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={onClose}
+                  onClick={() => setCompareOpen(false)}
                   className="rounded-full"
                 >
                   <X className="w-5 h-5" />
@@ -74,8 +70,8 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
             </div>
 
             {/* Compare Content */}
-            <div className="overflow-auto max-h-[60vh] p-6">
-              <div className={`grid gap-4 ${comparePets.length === 2 ? 'grid-cols-3' :
+            <div className="overflow-auto max-h-[60vh] p-4 sm:p-6 pb-20">
+              <div className={`grid gap-4 min-w-[500px] sm:min-w-0 ${comparePets.length === 2 ? 'grid-cols-3' :
                 comparePets.length === 3 ? 'grid-cols-4' : 'grid-cols-2'
                 }`}>
                 {/* Attribute Labels Column */}
@@ -116,19 +112,28 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
                     </div>
 
                     {/* Attributes */}
-                    {attributes.map(attr => (
-                      <div key={attr.key} className="h-12 flex items-center justify-center text-sm text-gray-700">
-                        {attr.render
-                          ? attr.render(pet[attr.key as keyof typeof pet] as never)
-                          : pet[attr.key as keyof typeof pet] as string
-                        }
-                      </div>
-                    ))}
+                    {attributes.map(attr => {
+                      const value = pet[attr.key as keyof typeof pet];
+                      // Highlight logic: checking if this attribute has different values among all comparePets
+                      const allValues = comparePets.map(p => {
+                        return String(p[attr.key as keyof typeof p]);
+                      });
+                      const isDifferent = new Set(allValues).size > 1;
+
+                      return (
+                        <div key={attr.key} className={`h-12 flex items-center justify-center text-sm ${isDifferent ? 'bg-orange-50/50 font-bold text-orange-900 border-l-[3px] border-orange-400 -ml-[1px]' : 'text-gray-700'}`}>
+                          {attr.render
+                            ? attr.render(value as never)
+                            : value as string
+                          }
+                        </div>
+                      )
+                    })}
 
                     {/* Personality */}
                     <div className="h-12 flex items-center justify-center">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        {pet.personality.slice(0, 2).map((p, i) => (
+                        {(pet.personality || []).slice(0, 2).map((p: string, i: number) => (
                           <span key={i} className="px-2 py-0.5 bg-orange-100 text-orange-600 text-xs rounded-full">
                             {p}
                           </span>
@@ -139,7 +144,7 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
                     {/* Suitable For */}
                     <div className="h-12 flex items-center justify-center">
                       <div className="flex flex-wrap gap-1 justify-center">
-                        {pet.suitableFor.slice(0, 2).map((s, i) => (
+                        {(pet.suitableFor || []).slice(0, 2).map((s: string, i: number) => (
                           <span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full">
                             {s}
                           </span>
@@ -157,7 +162,7 @@ export default function PetCompare({ isOpen, onClose }: PetCompareProps) {
                 <Button
                   key={pet.id}
                   onClick={() => {
-                    onClose();
+                    setCompareOpen(false);
                     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                   className="bg-orange-500 hover:bg-orange-600 text-white rounded-full"
