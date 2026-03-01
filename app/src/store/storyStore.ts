@@ -33,7 +33,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     fetchStories: async () => {
         set({ isLoading: true });
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'}/api/stories`);
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8789'}/api/stories`);
             const data = await response.json();
             if (data.data) {
                 set({
@@ -69,7 +69,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
         payload.adopter_name = user.name || '爱心人士';
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8789'}/api/stories`, {
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8789'}/api/stories`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
         if (!user) return [];
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'}/api/my-adoptions?user_id=${user.id}`);
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8789'}/api/my-adoptions?user_id=${user.id}`);
             if (response.ok) {
                 return await response.json();
             }

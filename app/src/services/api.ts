@@ -452,3 +452,18 @@ export const updateProfile = async (data: { name?: string, phone?: string, city?
   if (!res.ok || resData.code !== 0) throw new Error(resData.msg || 'Update failed');
   return resData;
 };
+
+// Notifications
+export async function fetchNotifications(userId: string) {
+  const r = await fetch(`${API_BASE}/api/notifications?user_id=${encodeURIComponent(userId)}`)
+  if (!r.ok) return []
+  return r.json()
+}
+
+export async function markNotificationRead(id: number | string) {
+  const r = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
+    method: 'PUT'
+  })
+  if (!r.ok) throw new Error('Failed to mark read')
+  return r.json()
+}

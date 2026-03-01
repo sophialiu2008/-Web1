@@ -78,7 +78,8 @@ export async function adminRoutes(app: FastifyInstance) {
         const { status, pet_id, user_id } = req.body as any
 
         // 1. Update application status
-        const { error: appError } = await supabase!.from('applications').update({ status }).eq('id', id)
+        const updateDate = new Date().toISOString()
+        const { error: appError } = await supabase!.from('applications').update({ status, update_date: updateDate }).eq('id', id)
         if (appError) return reply.status(500).send({ error: appError.message })
 
         if (status === 'approved' && pet_id && user_id) {
@@ -93,8 +94,22 @@ export async function adminRoutes(app: FastifyInstance) {
             })
         }
 
-        // 4. Send Notification SMS
+        // 4. Send Notification SMS and In-App Notification
         try {
+            if (status === 'approved' || status === 'rejected') {
+                const title = status === 'approved' ? '领养申请通过' : '领养申请被拒绝'
+                const message = status === 'approved'
+                    ? '您的领养申请已通过审核！请前往个人中心查看详情。'
+                    : '很遗憾，您的领养申请未能通过审核。如有疑问请联系客服。'
+
+                await supabase!.from('analytics_events').insert({
+                    type: 'in_app_notification',
+                    id_value: user_id,
+                    timestamp: new Date().toISOString(),
+                    meta: { title, message, is_read: false, link: '/profile', type: 'application' }
+                })
+            }
+
             const { data: userData } = await supabase!.from('users').select('phone').eq('id', user_id).single()
             if (userData?.phone) {
                 if (status === 'approved') {
@@ -104,7 +119,7 @@ export async function adminRoutes(app: FastifyInstance) {
                 }
             }
         } catch (err) {
-            console.error('[ADMIN] Failed to send adoption notification SMS:', err)
+            console.error('[ADMIN] Failed to send adoption notification:', err)
         }
 
         return { success: true }
@@ -134,6 +149,21 @@ export async function adminRoutes(app: FastifyInstance) {
         if (error) return reply.status(500).send({ error: error.message })
 
         try {
+            const user_id = booking?.user_id || booking?.users?.id
+            if (user_id && (status === 'confirmed' || status === 'cancelled')) {
+                const title = status === 'confirmed' ? '看宠预约成功' : '预约已被取消'
+                const message = status === 'confirmed'
+                    ? '您的看宠预约已确认！请按时前往，期待与您见面。'
+                    : '很抱歉，您的看宠预约已被取消。请重新预约。'
+
+                await supabase!.from('analytics_events').insert({
+                    type: 'in_app_notification',
+                    id_value: user_id,
+                    timestamp: new Date().toISOString(),
+                    meta: { title, message, is_read: false, link: '/profile', type: 'booking' }
+                })
+            }
+
             const phone = booking?.users?.phone || booking?.phone
             if (phone) {
                 if (status === 'confirmed') {
@@ -143,7 +173,7 @@ export async function adminRoutes(app: FastifyInstance) {
                 }
             }
         } catch (err) {
-            console.error('[ADMIN] Failed to send booking notification SMS:', err)
+            console.error('[ADMIN] Failed to send booking notification:', err)
         }
 
         return { success: true }
