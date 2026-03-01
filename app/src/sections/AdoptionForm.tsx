@@ -153,7 +153,8 @@ export default function AdoptionForm() {
         break;
       case 'phone':
         if (!value || String(value).trim() === '') return '请输入联系电话';
-        if (!/^1[3-9]\d{9}$/.test(String(value))) return '请输入有效的手机号码';
+        // Allow optional +86 or 86 prefix
+        if (!/^(?:\+?86)?1[3-9]\d{9}$/.test(String(value).trim())) return '请输入有效的手机号码';
         break;
       case 'email':
         if (value && String(value).trim() !== '' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value))) {

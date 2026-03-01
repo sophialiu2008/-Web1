@@ -20,6 +20,19 @@ export async function applicationsRoutes(app: FastifyInstance) {
       if (!body?.user_id || typeof body.user_id !== 'string' || !uuidRe.test(body.user_id)) {
         return reply.status(400).send({ error: 'invalid user_id, must be a UUID v4' })
       }
+
+      let finalPetId = body.pet_id;
+      if (finalPetId !== undefined && finalPetId !== null) {
+        // convert to string safely
+        const petIdStr = String(finalPetId);
+        if (!uuidRe.test(petIdStr)) {
+          finalPetId = null; // Prevent mock pet IDs ('1', '5') from crashing the UUID column
+        } else {
+          finalPetId = petIdStr;
+        }
+      } else {
+        finalPetId = null;
+      }
       if (body.age !== null && body.age !== undefined) {
         const ageNum = Number(body.age)
         if (!Number.isFinite(ageNum)) {
@@ -29,7 +42,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       }
       const row = {
         user_id: body.user_id,
-        pet_id: body.pet_id ?? null,
+        pet_id: finalPetId,
         pet_name: body.pet_name ?? null,
         name: body.name ?? null,
         phone: body.phone ?? null,

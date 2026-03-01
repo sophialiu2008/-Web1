@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 const schema = z.object({
     name: z.string().min(2, '昵称至少2个字符').max(20, '昵称最多20个字符'),
-    phone: z.string().regex(/^1[3-9]\d{9}$/, '请输入正确的手机号').optional().or(z.literal('')),
+    phone: z.string().regex(/^(?:\+?86)?1[3-9]\d{9}$/, '请输入正确的手机号').optional().or(z.literal('')),
     city: z.string().max(20, '城市最多20个字符').optional().or(z.literal('')),
     bio: z.string().max(100, '简介最多100个字符').optional().or(z.literal('')),
 });
